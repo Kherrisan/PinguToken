@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 账户类型枚举
+enum AccountType {
+  ASSETS      // 资产账户
+  LIABILITIES // 负债账户
+  INCOME      // 收入账户
+  EXPENSES    // 支出账户
+  EQUITY      // 权益账户
+}
+
+// 账户表
+model Account {
+  id        String      @id // 使用完整路径作为 ID，如 "Assets:Flow:Bank:BOC"
+  name      String      // 账户名称，如 "BOC"
+  type      AccountType // 账户类型
+  currency  String      // 账户币种
+  parent    Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  parentId  String?     // 父账户ID，如 "Assets:Flow:Bank"
+  children  Account[]   @relation("AccountHierarchy")
+  postings  Posting[]   // 账户相关的所有交易明细
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+// 交易表
+model Transaction {
+  id          String    @id @default(cuid())
+  date        DateTime  // 交易日期
+  payee       String    // 交易对手
+  narration   String    // 交易描述
+  postings    Posting[] // 交易的所有明细
+  tags        Tag[]     // 交易标签
+  rawRecords  RawTransaction[] // 关联的原始交易记录
+  createdAt   DateTime  // 实际交易时间
+  updatedAt   DateTime  @updatedAt
+  importedAt  DateTime  @default(now()) // 导入时间
+}
+
+// 交易明细表
+model Posting {
+  id            String      @id @default(cuid())
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  transactionId String
+  account       Account     @relation(fields: [accountId], references: [id])
+  accountId     String
+  amount        Decimal     // 金额（正数表示借方debit，负数表示贷方credit）
+  currency      String      // 币种
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([transactionId])
+  @@index([accountId])
+}
+
+// 标签表
+model Tag {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+// 原始交易记录表
+model RawTransaction {
+  id            String      @id @default(cuid())
+  source        String      // 数据来源（支付宝/微信/银行等）
+  rawData       Json        // 原始交易数据，以JSON格式存储
+  transactionId String?     // 可以为空，表示尚未关联到结构化交易
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  identifier    String      // 交易单号/商户单号等唯一标识
+  createdAt     DateTime    // 实际交易时间
+  updatedAt     DateTime    @updatedAt
+  importedAt    DateTime    @default(now()) // 导入时间
+
+  @@unique([source, identifier]) // 确保同一来源的同一笔交易不会重复导入
+  @@index([transactionId])
+  @@index([createdAt])
+}
+
+// 货币汇率表
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  date         DateTime
+  fromCurrency String
+  toCurrency   String
+  rate         Decimal
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([date, fromCurrency, toCurrency])
+  @@index([date])
+}
+
+// 导入源配置
+model ImportSource {
+    name            String           @id // 使用 name 作为主键，如 'alipay', 'wechat'
+    defaultConfig   ImportConfig?    // 一对一关系
+    rules           ImportRule[]     // 一对多关系
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+}
+
+// 导入源默认配置
+model ImportConfig {
+    id                  String       @id @default(cuid())
+    sourceId           String       @unique
+    source             ImportSource @relation(fields: [sourceId], references: [name]) // 引用 name 而不是 id
+    defaultMinusAccount String      // 默认支出账户
+    defaultPlusAccount String       // 默认收入账户
+    defaultCurrency    String       // 默认货币
+    createdAt          DateTime     @default(now())
+    updatedAt          DateTime     @updatedAt
+}
+
+// 导入规则
+model ImportRule {
+    id              String       @id @default(cuid())
+    sourceId        String      // 改为引用 ImportSource 的 name
+    source          ImportSource @relation(fields: [sourceId], references: [name])
+    priority        Int          // 规则优先级，数字越小优先级越高
+    name            String       // 规则名称
+    description     String?      // 规则描述
+    
+    // 匹配条件 - 所有非空的条件都必须匹配
+    typePattern     String?      // 交易类型的正则表达式
+    categoryPattern String?      // 交易分类的正则表达式
+    peerPattern     String?      // 交易对手的正则表达式
+    descPattern     String?      // 交易描述的正则表达式
+    timePattern     String?      // 时间范围，格式：HH:mm-HH:mm
+    amountMin       Decimal?     // 金额范围 - 最小值
+    amountMax       Decimal?     // 金额范围 - 最大值
+    
+    // 转换结果
+    methodAccount   String?      // 资金账户
+    targetAccount   String       // 目标账户
+    
+    enabled         Boolean      @default(true) // 规则是否启用
+    createdAt       DateTime     @default(now())
+    updatedAt       DateTime     @updatedAt
+
+    @@unique([sourceId, priority])  // 使用 priority 作为唯一约束
+    @@index([sourceId, name])       // 名称作为索引
+}

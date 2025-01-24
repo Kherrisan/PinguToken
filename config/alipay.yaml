@@ -1,0 +1,20 @@
+defaultMinusAccount: Assets:Flow:Bank:BOC
+defaultPlusAccount: Expenses:FIXME
+defaultCurrency: CNY
+alipay:
+  rules:
+    # 泛匹配结果应当放在前面
+    - type: 支出
+      methodAccount: Assets:Flow:Bank:BOC
+    - peer: luckincoffee
+      targetAccount: Expenses:Life:Food:Coffee
+    - category: 文化休闲
+      peer: App Store & Apple Music
+      targetAccount: Expenses:Life:Subscription
+    - category: 文化休闲
+      peer: iCloud
+      targetAccount: Expenses:Life:Subscription
+    - category: 服饰装扮
+      targetAccount: Expenses:Life:Shopping:Clothes
+    - peer: 哈啰出行
+      targetAccount: Expenses:Life:Travel:SharingBike 

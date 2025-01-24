@@ -1,0 +1,62 @@
+defaultMinusAccount: Assets:FIXME
+defaultPlusAccount: Expenses:FIXME
+defaultCommissionAccount: Expenses:Commission:FIXME
+defaultCurrency: CNY
+title: 测试
+wechat:
+  rules:
+    - method: / # 一般为收入，存入零钱
+      methodAccount: Assets:Flow:EBank:WxPay:微信支付
+    - txType: 转账
+      targetAccount: Income:Wechat:Transfer
+    - txType: 微信红包
+      targetAccount: Income:Wechat:RedPacket
+    - type: 支出
+      method: 零钱
+      methodAccount: Assets:Flow:EBank:WxPay:微信支付
+    - type: 收入
+      method: 零钱
+      targetAccount: Assets:Flow:EBank:WxPay:微信支付
+    - type: 收入 # 微信红包
+      txType: "微信红包"
+      targetAccount: Income:Wechat:RedPacket
+    - type: 支出
+      peer: 东南大学
+      item: 东南大学-消费
+      targetAccount: Assets:Flow:SEU:东大一卡通
+    - peer: 久安充电
+      targetAccount: Expenses:Life:House:Electricity:用电
+    - peer: 久安充电
+      type: 收入
+      method: 零钱
+      targetAccount: Expenses:Life:House:Electricity:用电
+      methodAccount: Assets:Flow:EBank:WxPay:微信支付
+    - peer: 7MA 出行
+      targetAccount: Expenses:Life:Travel:Bike:共享单车
+    - txType: 转入零钱
+      targetAccount: Assets:Flow:EBank:WxPay:微信支付
+    - txType: 零钱提现 # 零钱提现
+      targetAccount: Assets:Flow:EBank:WxPay:微信支付
+      commissionAccount: Expenses:Life:Other:Commission:手续费
+    - txType: 零钱充值
+      targetAccount: Assets:Flow:EBank:WxPay:微信支付
+    - method: 中国银行(7617)
+      methodAccount: Assets:Flow:Bank:BOC:中国银行
+    - peer: 美团平台商户
+      txType: 商户消费
+      time: 10:30-13:00
+      targetAccount: Expenses:Life:Food:Meal:午餐
+    - peer: 美团平台商户
+      txType: 商户消费
+      time: 16:30-18:30
+      targetAccount: Expenses:Life:Food:Meal:晚餐
+    - peer: 24H智能售货
+      targetAccount: Expenses:Life:Food:Snack:零食
+    - peer: 中超超市
+      targetAccount: Expenses:Life:Shopping:购物
+    - peer: 霸王茶姬
+      targetAccount: Expenses:Life:Food:Drink:饮料
+    - peer: UNIQLO
+      targetAccount: Expenses:Life:Shopping:Clothes:衣服
+    - peer: 漫品茶生
+      targetAccount: Expenses:Life:House:Laundry:洗衣服
