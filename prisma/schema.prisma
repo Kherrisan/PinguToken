@@ -102,51 +102,35 @@ model ExchangeRate {
 
 // 导入源配置
 model ImportSource {
-    name            String           @id // 使用 name 作为主键，如 'alipay', 'wechat'
-    defaultConfig   ImportConfig?    // 一对一关系
-    rules           ImportRule[]     // 一对多关系
-    createdAt       DateTime         @default(now())
-    updatedAt       DateTime         @updatedAt
-}
-
-// 导入源默认配置
-model ImportConfig {
-    id                  String       @id @default(cuid())
-    sourceId           String       @unique
-    source             ImportSource @relation(fields: [sourceId], references: [name]) // 引用 name 而不是 id
-    defaultMinusAccount String      // 默认支出账户
-    defaultPlusAccount String       // 默认收入账户
-    defaultCurrency    String       // 默认货币
-    createdAt          DateTime     @default(now())
-    updatedAt          DateTime     @updatedAt
+    id          String       @id @unique
+    name        String       @unique
+    rules       ImportRule[] // 直接关联 ImportRule
+    createdAt   DateTime     @default(now())
+    updatedAt   DateTime     @updatedAt
 }
 
 // 导入规则
 model ImportRule {
-    id              String       @id @default(cuid())
-    sourceId        String      // 改为引用 ImportSource 的 name
-    source          ImportSource @relation(fields: [sourceId], references: [name])
-    priority        Int          // 规则优先级，数字越小优先级越高
-    name            String       // 规则名称
-    description     String?      // 规则描述
-    
-    // 匹配条件 - 所有非空的条件都必须匹配
-    typePattern     String?      // 交易类型的正则表达式
-    categoryPattern String?      // 交易分类的正则表达式
-    peerPattern     String?      // 交易对手的正则表达式
-    descPattern     String?      // 交易描述的正则表达式
-    timePattern     String?      // 时间范围，格式：HH:mm-HH:mm
-    amountMin       Decimal?     // 金额范围 - 最小值
-    amountMax       Decimal?     // 金额范围 - 最大值
-    
-    // 转换结果
-    methodAccount   String?      // 资金账户
-    targetAccount   String       // 目标账户
-    
-    enabled         Boolean      @default(true) // 规则是否启用
+    id               String       @id @default(cuid())
+    source           ImportSource @relation(fields: [sourceId], references: [id])
+    sourceId         String
+    name             String
+    description      String?
+    targetAccount    String       // 目标账户
+    methodAccount    String       // 支付方式账户
+    typePattern     String?      // 交易类型匹配模式
+    categoryPattern String?      // 交易分类匹配模式
+    peerPattern     String?      // 交易对手匹配模式
+    descPattern     String?      // 交易描述匹配模式
+    timePattern     String?      // 时间范围匹配模式 (HH:mm-HH:mm)
+    amountMin       Float?       // 最小金额
+    amountMax       Float?       // 最大金额
+    statusPattern   String?      // 交易状态匹配模式
+    methodPattern   String?      // 支付方式匹配模式
+    priority        Int          @default(0)
+    enabled         Boolean      @default(true)
     createdAt       DateTime     @default(now())
     updatedAt       DateTime     @updatedAt
 
-    @@unique([sourceId, priority])  // 使用 priority 作为唯一约束
-    @@index([sourceId, name])       // 名称作为索引
+    @@index([sourceId])
 }
