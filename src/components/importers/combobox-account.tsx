@@ -29,6 +29,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { toast } from "@/hooks/use-toast"
 
 interface ComboboxAccountProps {
     value: string
@@ -72,9 +73,15 @@ export function ComboboxAccount({ value, onValueChange }: ComboboxAccountProps) 
             await mutate() // 刷新账户列表
             onValueChange(newAccount.id)
             setShowCreateDialog(false)
+            setOpen(true) // 重新打开账户选择弹窗
         } catch (error) {
             console.error('Failed to create account:', error)
             // 这里可以添加错误提示
+            toast({
+                title: "创建失败",
+                description: "无法创建账户，请重试",
+                variant: "destructive",
+            })
         }
     }
 
@@ -186,6 +193,18 @@ function CreateAccountDialog({
         parent: ''
     })
     const [searchQuery, setSearchQuery] = React.useState("")
+
+    // 重置表单
+    React.useEffect(() => {
+        if (!open) {
+            setFormData({
+                name: '',
+                type: 'EXPENSES',
+                parent: ''
+            })
+            setSearchQuery("")
+        }
+    }, [open])
 
     const filteredAccounts = React.useMemo(() => {
         if (!searchQuery) return accounts.filter(account => account.type === formData.type)

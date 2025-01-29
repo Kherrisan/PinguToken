@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import useSWR from 'swr'
 
 interface Account {
     id: string
@@ -7,29 +7,10 @@ interface Account {
     parentId: string | null
 }
 
+const fetcher = (url: string) => fetch(url).then(res => res.json())
+
 export function useAccounts() {
-    const [accounts, setAccounts] = useState<Account[] | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState<Error | null>(null)
-
-    useEffect(() => {
-        async function fetchAccounts() {
-            try {
-                const response = await fetch('/api/accounts')
-                if (!response.ok) {
-                    throw new Error('Failed to fetch accounts')
-                }
-                const data = await response.json()
-                setAccounts(data)
-            } catch (e) {
-                setError(e instanceof Error ? e : new Error('Unknown error'))
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
-        fetchAccounts()
-    }, [])
+    const { data: accounts, error, isLoading, mutate } = useSWR<Account[]>('/api/accounts', fetcher)
 
     // 构建账户完整路径
     const accountsWithFullPath = accounts?.map(account => {
@@ -45,5 +26,10 @@ export function useAccounts() {
         }
     })
 
-    return { accounts: accountsWithFullPath, isLoading, error }
+    return { 
+        accounts: accountsWithFullPath, 
+        isLoading, 
+        error,
+        mutate 
+    }
 } 

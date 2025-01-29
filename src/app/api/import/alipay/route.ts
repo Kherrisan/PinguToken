@@ -44,7 +44,7 @@ async function processRawRecord(record: ImportRecord) {
         data: {
             source: 'alipay',
             identifier: record.transactionNo.trim(),
-            rawData: JSON.stringify(record),
+            rawData: record as any,
             createdAt: date
         }
     });

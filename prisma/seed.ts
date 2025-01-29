@@ -14,6 +14,30 @@ const accountSeeds: AccountSeed[] = [
         type: 'ASSETS',
         children: [
             {
+                id: 'Assets:Exchange',
+                type: 'ASSETS',
+                children: [
+                    { id: 'Assets:Exchange:Okex', type: 'ASSETS' },
+                ]
+            },
+            {
+                id: 'Assets:Brokerage',
+                type: 'ASSETS',
+                children: [
+                    {
+                        id: 'Assets:Brokerage:CICITSecurities',
+                        type: 'ASSETS',
+                    }
+                ]
+            },
+            {
+                id: 'Assets:Investment',
+                type: 'ASSETS',
+                children: [
+                    { id: 'Assets:Investment:YuEBao', type: 'ASSETS' },
+                ]
+            },
+            {
                 id: 'Assets:Liquid',
                 type: 'ASSETS',
                 children: [
@@ -236,6 +260,13 @@ const accountSeeds: AccountSeed[] = [
         id: 'Income',
         type: 'INCOME',
         children: [
+            {
+                id: 'Income:Investment',
+                type: 'INCOME',
+                children: [
+                    { id: 'Income:Investment:YuEBao', type: 'INCOME' },
+                ]
+            },
             {
                 id: 'Income:Work',
                 type: 'INCOME',

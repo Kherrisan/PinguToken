@@ -18,12 +18,13 @@ import { ComboboxAccount } from "./combobox-account"
 import { Separator } from "@/components/ui/separator"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { InfoIcon } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 interface CreateRuleDialogProps {
     transaction: ImportRecord | undefined;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onRuleCreated: (ruleId: string) => void;
+    onRuleCreated: (ruleId: string, matched: boolean) => void;
 }
 
 interface MatchCondition {
@@ -205,10 +206,11 @@ export function CreateRuleDialog({
 
     const handleSubmit = async () => {
         if (!transaction) return;
-
         setIsSaving(true);
+
         try {
-            const response = await fetch('/api/import/rules', {
+            // 创建规则
+            const ruleResponse = await fetch('/api/import/rules', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -224,19 +226,53 @@ export function CreateRuleDialog({
                     peerPattern: formData.peer.enabled ? formData.peer.pattern : undefined,
                     descPattern: formData.desc.enabled ? formData.desc.pattern : undefined,
                     timePattern: formData.time.enabled ? `${formData.time.start}-${formData.time.end}` : undefined,
-                    amountMin: formData.amount.enabled ? formData.amount.min : undefined,
-                    amountMax: formData.amount.enabled ? formData.amount.max : undefined,
+                    amountMin: formData.amount.enabled ? parseFloat(formData.amount.min || '0') : undefined,
+                    amountMax: formData.amount.enabled ? parseFloat(formData.amount.max || '0') : undefined,
                     statusPattern: formData.status.enabled ? formData.status.pattern : undefined,
                     methodPattern: formData.method.enabled ? formData.method.pattern : undefined,
                 }),
             });
 
-            if (!response.ok) {
+            if (!ruleResponse.ok) {
                 throw new Error('Failed to create rule');
             }
 
-            const result = await response.json();
-            onRuleCreated(result.id);
+            const rule = await ruleResponse.json();
+
+            // 使用新规则尝试匹配当前交易
+            const tryMatchResponse = await fetch('/api/import/try-match', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    source: 'alipay',
+                    transactions: [transaction]
+                }),
+            });
+
+            if (!tryMatchResponse.ok) {
+                throw new Error('Failed to match transaction');
+            }
+
+            const [matchResult] = await tryMatchResponse.json();
+            
+            // 通知父组件规则已创建，并传递匹配结果
+            onRuleCreated(rule.id, matchResult.matched);
+            onOpenChange(false);
+
+            toast({
+                title: "规则创建成功",
+                description: matchResult.matched 
+                    ? "规则已创建并可以匹配当前交易" 
+                    : "规则已创建，但未能匹配当前交易",
+            });
+        } catch (error) {
+            toast({
+                title: "创建失败",
+                description: "无法创建规则，请重试",
+                variant: "destructive",
+            });
         } finally {
             setIsSaving(false);
         }

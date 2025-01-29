@@ -25,8 +25,8 @@ async function getTransactions() {
         payee: tx.payee,
         narration: tx.narration,
         amount: [...tx.postings].filter(p => p.amount > 0).reduce((sum, p) => sum + Number(p.amount), 0).toString(),
+        accounts: [...tx.postings].sort((a, b) => a.amount - b.amount).map(p => p.account),
         tags: tx.tags.map(t => t.name).join(", "),
-        accounts: [...tx.postings].sort((a, b) => a.amount - b.amount).map(p => p.account.name).join(" → ")
     }))
 }
 

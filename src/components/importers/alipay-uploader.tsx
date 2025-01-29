@@ -60,7 +60,7 @@ export function AlipayUploader() {
             setMatchResults(result);
             setMessage({
                 type: 'success',
-                text: `成功匹配 ${result.matched.length} 条交易，${result.unmatched.length} 条待处理`
+                text: `成功匹配 ${result.matched?.length || 0} 条交易，${result.unmatched.length} 条待处理`
             });
         } catch (error) {
             setMessage({
