@@ -6,17 +6,17 @@ import { MatchResult, matchTransactions } from '@/lib/importers/matcher';
 import { ImportRecord } from '@/lib/types/transaction';
 import { prisma } from '@/lib/prisma';
 
-interface ImportResponse {
+export interface ImportResponse {
     matched: number;
     unmatched: MatchResult[];
 }
 
-interface ErrorResponse {
+export interface ErrorResponse {
     error: string;
 }
 
 // 处理单条记录
-async function processRawRecord(record: ImportRecord) {
+export async function processRawRecord(record: ImportRecord) {
     // 检查是否已导入
     const existingRawTx = await prisma.rawTransaction.findUnique({
         where: {
@@ -36,7 +36,7 @@ async function processRawRecord(record: ImportRecord) {
     }
 
     // 清理和转换数据
-    const amount = parseFloat(record.amount.replace(',', ''));
+    const amount = parseFloat(record.amount.replace(/[,¥]/g, ''));
     const date = new Date(record.transactionTime);
 
     // 获取或创建原始记录

@@ -3,13 +3,34 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
     try {
+        // 获取所有账户及其交易明细
         const accounts = await prisma.account.findMany({
+            include: {
+                postings: true,
+            },
             orderBy: {
-                id: 'asc'
+                id: 'asc',
+            },
+        })
+
+        // 计算每个账户的余额
+        const accountsWithBalance = accounts.map(account => {
+            const balance = account.postings.reduce(
+                (sum, posting) => sum + Number(posting.amount),
+                0
+            )
+
+            return {
+                id: account.id,
+                name: account.name,
+                type: account.type,
+                balance: balance.toFixed(2),
+                currency: account.currency,
+                path: account.id.split(':').join(' / '),
             }
         })
 
-        return NextResponse.json(accounts)
+        return NextResponse.json(accountsWithBalance)
     } catch (error) {
         console.error('Failed to fetch accounts:', error)
         return NextResponse.json(
@@ -22,7 +43,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { name, type, parent } = body
+        const { name, type, parent, openBalance } = body
 
         if (!name || !type) {
             return NextResponse.json(
@@ -97,6 +118,39 @@ export async function POST(request: Request) {
                 type,
                 parentId: parent || null,
                 currency: 'CNY', // 默认使用人民币
+            }
+        })
+
+        const date = new Date()
+        // 如果有初始余额，创建一个初始化交易
+        await prisma.transaction.create({
+            data: {
+                date,
+                createdAt: date,
+                payee: '初始化',
+                narration: '账户初始化',
+                postings: {
+                    create: [
+                        {
+                            account: {
+                                connect: {
+                                    id: account.id
+                                }
+                            },
+                            amount: openBalance || 0,
+                            currency: 'CNY'
+                        },
+                        {
+                            account: {
+                                connect: {
+                                    id: 'Equity:OpenBalance'
+                                }
+                            },
+                            amount: -(openBalance || 0),
+                            currency: 'CNY'
+                        }
+                    ]
+                }
             }
         })
 

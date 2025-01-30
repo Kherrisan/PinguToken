@@ -3,36 +3,29 @@
 import { useState } from "react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { AlipayUploader } from "./alipay-uploader"
-import { WechatUploader } from "./wechat-uploader"
+import { RawTransactionFileUploader } from "./raw-transaction-uploader"
 import { Separator } from "@/components/ui/separator"
-import { SEUUploader } from "./seu-uploader"
 
 const sources = [
     {
         id: "alipay",
         name: "支付宝",
-        description: "从支付宝导出的 CSV 账单文件导入交易记录",
-        component: AlipayUploader
+        description: "从支付宝导出的 CSV 账单文件导入交易记录"
     },
     {
-        id: "wechat",
+        id: "wechatpay",
         name: "微信支付",
-        description: "从微信支付导出的账单文件导入交易记录",
-        component: WechatUploader
+        description: "从微信支付导出的账单文件导入交易记录"
     },
     {
         id: "seu",
         name: "东大一卡通",
-        description: "从东大一卡通导出的账单文件导入交易记录",
-        component: SEUUploader
+        description: "从东大一卡通导出的账单文件导入交易记录"
     }
 ] as const
 
 export function ImportSourceSelector() {
     const [selectedSource, setSelectedSource] = useState<string>("alipay")
-    const source = sources.find(s => s.id === selectedSource)
-    const Uploader = source?.component
 
     return (
         <div className="space-y-6">
@@ -60,15 +53,10 @@ export function ImportSourceSelector() {
                     </div>
                 ))}
             </RadioGroup>
-
-            {Uploader && (
-                <>
-                    <Separator />
-                    <div className="pt-4">
-                        <Uploader />
-                    </div>
-                </>
-            )}
+            <Separator />
+            <div className="pt-4">
+                <RawTransactionFileUploader source={selectedSource} />
+            </div>
         </div>
     )
-} 
+}

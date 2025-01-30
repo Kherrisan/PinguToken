@@ -13,6 +13,7 @@ import {
   Settings2,
   SquareTerminal,
   ListTodo,
+  Wallet,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -40,6 +41,16 @@ const data = {
   },
   navMain: [
     {
+      title: "概览",
+      items: [
+        {
+          title: "资产概览",
+          url: "/dashboard/overview",
+          icon: PieChart,
+        },
+      ],
+    },
+    {
       title: "交易",
       url: "#",
       icon: SquareTerminal,
@@ -56,6 +67,17 @@ const data = {
         {
           title: "设置",
           url: "#",
+        },
+      ],
+    },
+    {
+      title: "账户",
+      url: "#",
+      icon: Wallet,
+      items: [
+        {
+          title: "账户列表",
+          url: "/dashboard/accounts",
         },
       ],
     },

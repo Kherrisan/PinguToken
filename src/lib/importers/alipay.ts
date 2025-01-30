@@ -175,7 +175,7 @@ interface CreateTransactionParams {
 }
 
 // 创建结构化交易记录
-async function createTransaction(params: CreateTransactionParams): Promise<Transaction> {
+export async function createTransaction(params: CreateTransactionParams): Promise<Transaction> {
     const { record, targetAccount, methodAccount, rawTransaction, amount, date } = params;
 
     return await prisma.transaction.create({
@@ -217,14 +217,6 @@ async function createTransaction(params: CreateTransactionParams): Promise<Trans
                     }
                 ]
             },
-            tags: {
-                connectOrCreate: {
-                    where: { name: record.category },
-                    create: { name: record.category }
-                }
-            }
         }
     });
 }
-
-export { createTransaction }; 

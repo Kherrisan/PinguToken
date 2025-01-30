@@ -55,12 +55,6 @@ export async function POST(request: Request) {
                                 currency: 'CNY'
                             }
                         ]
-                    },
-                    tags: {
-                        connectOrCreate: {
-                            where: { name: transaction.category },
-                            create: { name: transaction.category }
-                        }
                     }
                 }
             });

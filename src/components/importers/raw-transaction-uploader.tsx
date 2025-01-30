@@ -10,7 +10,11 @@ import { Progress } from "@/components/ui/progress"
 import { UnmatchedTransactions } from "./unmatched-transactions"
 import { MatchResult } from '@/lib/importers/matcher';
 
-export function AlipayUploader() {
+interface RawTransactionFileUploaderProps {
+    source: string
+}
+
+export function RawTransactionFileUploader({ source }: RawTransactionFileUploaderProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -43,7 +47,7 @@ export function AlipayUploader() {
                 });
             }, 200);
 
-            const response = await fetch('/api/import/alipay', {
+            const response = await fetch(`/api/import/${source}`, {
                 method: 'POST',
                 body: formData,
             });

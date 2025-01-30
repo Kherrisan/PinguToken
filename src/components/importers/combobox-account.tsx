@@ -55,6 +55,7 @@ export function ComboboxAccount({ value, onValueChange }: ComboboxAccountProps) 
         name: string
         type: 'ASSETS' | 'LIABILITIES' | 'INCOME' | 'EXPENSES' | 'EQUITY'
         parent?: string
+        openBalance?: number
     }) => {
         try {
             const response = await fetch('/api/accounts', {
@@ -177,11 +178,11 @@ export function ComboboxAccount({ value, onValueChange }: ComboboxAccountProps) 
 interface CreateAccountDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onSubmit: (data: { name: string; type: string; parent?: string }) => void
+    onSubmit: (data: { name: string; type: string; parent?: string; openBalance?: number }) => void
     accounts: Array<{ id: string; name: string; type: string; fullPath: string }>
 }
 
-function CreateAccountDialog({
+export function CreateAccountDialog({
     open,
     onOpenChange,
     onSubmit,
@@ -190,7 +191,8 @@ function CreateAccountDialog({
     const [formData, setFormData] = React.useState({
         name: '',
         type: 'EXPENSES',
-        parent: ''
+        parent: '',
+        openBalance: 0
     })
     const [searchQuery, setSearchQuery] = React.useState("")
 
@@ -200,7 +202,8 @@ function CreateAccountDialog({
             setFormData({
                 name: '',
                 type: 'EXPENSES',
-                parent: ''
+                parent: '',
+                openBalance: 0
             })
             setSearchQuery("")
         }
@@ -298,6 +301,18 @@ function CreateAccountDialog({
                                 </div>
                             </ScrollArea>
                         </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="openBalance">初始余额</Label>
+                        <Input
+                            id="openBalance"
+                            type="number"
+                            step="0.01"
+                            value={formData.openBalance}
+                            onChange={(e) => setFormData(prev => ({ ...prev, openBalance: parseFloat(e.target.value) }))}
+                            placeholder="0.00"
+                        />
                     </div>
                 </div>
 

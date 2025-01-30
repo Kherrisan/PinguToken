@@ -14,6 +14,15 @@ const accountSeeds: AccountSeed[] = [
         type: 'ASSETS',
         children: [
             {
+                id: 'Assets:Fund',
+                type: 'ASSETS',
+                children: [
+                    {
+                        id: 'Assets:Fund:ETF', type: 'ASSETS'
+                    },
+                ]
+            },
+            {
                 id: 'Assets:Exchange',
                 type: 'ASSETS',
                 children: [
@@ -314,6 +323,24 @@ const accountSeeds: AccountSeed[] = [
             },
         ]
     },
+    {
+        id: 'Equity',
+        type: 'EQUITY',
+        children: [
+            {
+                id: 'Equity:OpenBalance',
+                type: 'EQUITY',
+            },
+            {
+                id: 'Equity:RoundingErrors',
+                type: 'EQUITY',
+            },
+            {
+                id: 'Equity:UFO',
+                type: 'EQUITY',
+            }
+        ]
+    }
 ];
 
 async function createAccount(account: AccountSeed, parentId: string | null = null) {

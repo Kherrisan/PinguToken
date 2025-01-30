@@ -22,7 +22,7 @@ export function useAccounts() {
 
         return {
             ...account,
-            fullPath: getFullPath(account)
+            fullPath: account.id
         }
     })
 

@@ -35,7 +35,7 @@ export default async function TransactionsPage() {
 
     return (
         <div className="container mx-auto py-10">
-            <DataTable columns={columns} data={transactions} />
+            <DataTable columns={columns} data={transactions} enableRowClick={true} />
         </div>
     )
 } 

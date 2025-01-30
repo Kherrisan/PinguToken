@@ -21,15 +21,18 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[]
     data: TData[]
+    enableRowClick?: boolean
 }
 
 export function DataTable<TData, TValue>({
     columns,
     data,
+    enableRowClick = false
 }: DataTableProps<TData, TValue>) {
     const router = useRouter()
     const [sorting, setSorting] = React.useState<SortingState>([])
@@ -74,10 +77,14 @@ export function DataTable<TData, TValue>({
                                 <TableRow
                                     key={row.id}
                                     data-state={row.getIsSelected() && "selected"}
-                                    className="cursor-pointer hover:bg-muted/50"
+                                    className={cn(
+                                        enableRowClick && "cursor-pointer hover:bg-muted/50"
+                                    )}
                                     onClick={() => {
-                                        const id = (row.original as any).id
-                                        router.push(`/dashboard/transactions/${id}`)
+                                        if (enableRowClick) {
+                                            const id = (row.original as any).id
+                                            router.push(`/dashboard/transactions/${id}`)
+                                        }
                                     }}
                                 >
                                     {row.getVisibleCells().map((cell) => (
@@ -96,24 +103,6 @@ export function DataTable<TData, TValue>({
                         )}
                     </TableBody>
                 </Table>
-            </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                >
-                    上一页
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                >
-                    下一页
-                </Button>
             </div>
         </div>
     )

@@ -7,86 +7,71 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 账户类型枚举
-enum AccountType {
-  ASSETS      // 资产账户
-  LIABILITIES // 负债账户
-  INCOME      // 收入账户
-  EXPENSES    // 支出账户
-  EQUITY      // 权益账户
-}
-
-// 账户表
 model Account {
-  id        String      @id // 使用完整路径作为 ID，如 "Assets:Flow:Bank:BOC"
-  name      String      // 账户名称，如 "BOC"
-  type      AccountType // 账户类型
-  currency  String      // 账户币种
-  parent    Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
-  parentId  String?     // 父账户ID，如 "Assets:Flow:Bank"
-  children  Account[]   @relation("AccountHierarchy")
-  postings  Posting[]   // 账户相关的所有交易明细
+  id        String      @id
+  name      String
+  type      AccountType
+  currency  String
+  parentId  String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+  parent    Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children  Account[]   @relation("AccountHierarchy")
+  postings  Posting[]
 }
 
-// 交易表
 model Transaction {
-  id          String    @id @default(cuid())
-  date        DateTime  // 交易日期
-  payee       String    // 交易对手
-  narration   String    // 交易描述
-  postings    Posting[] // 交易的所有明细
-  tags        Tag[]     // 交易标签
-  rawRecords  RawTransaction[] // 关联的原始交易记录
-  createdAt   DateTime  // 实际交易时间
-  updatedAt   DateTime  @updatedAt
-  importedAt  DateTime  @default(now()) // 导入时间
+  id         String           @id @default(cuid())
+  date       DateTime
+  payee      String
+  narration  String
+  createdAt  DateTime
+  updatedAt  DateTime         @updatedAt
+  importedAt DateTime         @default(now())
+  postings   Posting[]
+  rawRecords RawTransaction[]
+  tags       Tag[]            @relation("TagToTransaction")
 }
 
-// 交易明细表
 model Posting {
   id            String      @id @default(cuid())
-  transaction   Transaction @relation(fields: [transactionId], references: [id])
   transactionId String
-  account       Account     @relation(fields: [accountId], references: [id])
   accountId     String
-  amount        Decimal     // 金额（正数表示借方debit，负数表示贷方credit）
-  currency      String      // 币种
+  amount        Decimal
+  currency      String
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  account       Account     @relation(fields: [accountId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
 
   @@index([transactionId])
   @@index([accountId])
 }
 
-// 标签表
 model Tag {
   id           String        @id @default(cuid())
   name         String        @unique
-  transactions Transaction[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  transactions Transaction[] @relation("TagToTransaction")
 }
 
-// 原始交易记录表
 model RawTransaction {
-  id            String      @id @default(cuid())
-  source        String      // 数据来源（支付宝/微信/银行等）
-  rawData       Json        // 原始交易数据，以JSON格式存储
-  transactionId String?     // 可以为空，表示尚未关联到结构化交易
+  id            String       @id @default(cuid())
+  source        String
+  rawData       Json
+  transactionId String?
+  identifier    String
+  createdAt     DateTime
+  updatedAt     DateTime     @updatedAt
+  importedAt    DateTime     @default(now())
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
-  identifier    String      // 交易单号/商户单号等唯一标识
-  createdAt     DateTime    // 实际交易时间
-  updatedAt     DateTime    @updatedAt
-  importedAt    DateTime    @default(now()) // 导入时间
 
-  @@unique([source, identifier]) // 确保同一来源的同一笔交易不会重复导入
+  @@unique([source, identifier])
   @@index([transactionId])
   @@index([createdAt])
 }
 
-// 货币汇率表
 model ExchangeRate {
   id           String   @id @default(cuid())
   date         DateTime
@@ -100,37 +85,43 @@ model ExchangeRate {
   @@index([date])
 }
 
-// 导入源配置
 model ImportSource {
-    id          String       @id @unique
-    name        String       @unique
-    rules       ImportRule[] // 直接关联 ImportRule
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
+  id        String       @id @unique
+  name      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  rules     ImportRule[]
 }
 
-// 导入规则
 model ImportRule {
-    id               String       @id @default(cuid())
-    source           ImportSource @relation(fields: [sourceId], references: [id])
-    sourceId         String
-    name             String
-    description      String?
-    targetAccount    String       // 目标账户
-    methodAccount    String       // 支付方式账户
-    typePattern     String?      // 交易类型匹配模式
-    categoryPattern String?      // 交易分类匹配模式
-    peerPattern     String?      // 交易对手匹配模式
-    descPattern     String?      // 交易描述匹配模式
-    timePattern     String?      // 时间范围匹配模式 (HH:mm-HH:mm)
-    amountMin       Float?       // 最小金额
-    amountMax       Float?       // 最大金额
-    statusPattern   String?      // 交易状态匹配模式
-    methodPattern   String?      // 支付方式匹配模式
-    priority        Int          @default(0)
-    enabled         Boolean      @default(true)
-    createdAt       DateTime     @default(now())
-    updatedAt       DateTime     @updatedAt
+  id              String       @id @default(cuid())
+  sourceId        String
+  name            String
+  description     String?
+  targetAccount   String
+  methodAccount   String
+  typePattern     String?
+  categoryPattern String?
+  peerPattern     String?
+  descPattern     String?
+  timePattern     String?
+  amountMin       Float?
+  amountMax       Float?
+  statusPattern   String?
+  methodPattern   String?
+  priority        Int          @default(0)
+  enabled         Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  source          ImportSource @relation(fields: [sourceId], references: [id])
 
-    @@index([sourceId])
+  @@index([sourceId])
+}
+
+enum AccountType {
+  ASSETS
+  LIABILITIES
+  INCOME
+  EXPENSES
+  EQUITY
 }
