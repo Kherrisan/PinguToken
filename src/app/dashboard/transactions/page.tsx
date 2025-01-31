@@ -24,8 +24,13 @@ async function getTransactions() {
         date: formatDate(tx.date),
         payee: tx.payee,
         narration: tx.narration,
-        amount: [...tx.postings].filter(p => p.amount > 0).reduce((sum, p) => sum + Number(p.amount), 0).toString(),
-        accounts: [...tx.postings].sort((a, b) => a.amount - b.amount).map(p => p.account),
+        amount: [...tx.postings]
+            .filter(p => Number(p.amount) > 0)
+            .reduce((sum, p) => sum + Number(p.amount), 0)
+            .toString(),
+        accounts: [...tx.postings]
+            .sort((a, b) => Number(a.amount) - Number(b.amount))
+            .map(p => p.account),
         tags: tx.tags.map(t => t.name).join(", "),
     }))
 }

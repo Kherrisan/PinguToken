@@ -1,10 +1,8 @@
-import { createTransaction, parseAlipayCSV } from '@/lib/importers/alipay';
+import { createTransaction, parseAlipayCSV, processRawRecord } from '@/lib/importers/alipay';
 import { NextResponse } from 'next/server';
 import { writeFile, unlink } from 'fs/promises';
 import iconv from 'iconv-lite';
 import { MatchResult, matchTransactions } from '@/lib/importers/matcher';
-import { ImportRecord } from '@/lib/types/transaction';
-import { prisma } from '@/lib/prisma';
 
 export interface ImportResponse {
     matched: number;
@@ -13,48 +11,6 @@ export interface ImportResponse {
 
 export interface ErrorResponse {
     error: string;
-}
-
-// 处理单条记录
-export async function processRawRecord(record: ImportRecord) {
-    // 检查是否已导入
-    const existingRawTx = await prisma.rawTransaction.findUnique({
-        where: {
-            source_identifier: {
-                source: 'alipay',
-                identifier: record.transactionNo.trim()
-            }
-        },
-        include: {
-            transaction: true
-        }
-    });
-
-    // 如果已经有关联的交易记录，跳过处理
-    if (existingRawTx?.transaction) {
-        return null;
-    }
-
-    // 清理和转换数据
-    const amount = parseFloat(record.amount.replace(/[,¥]/g, ''));
-    const date = new Date(record.transactionTime);
-
-    // 获取或创建原始记录
-    const rawTransaction = existingRawTx || await prisma.rawTransaction.create({
-        data: {
-            source: 'alipay',
-            identifier: record.transactionNo.trim(),
-            rawData: record as any,
-            createdAt: date
-        }
-    });
-
-    return {
-        record,
-        rawTransaction,
-        amount,
-        date
-    };
 }
 
 export async function POST(request: Request): Promise<NextResponse<ImportResponse | ErrorResponse>> {

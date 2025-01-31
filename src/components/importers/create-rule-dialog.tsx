@@ -278,57 +278,14 @@ export function CreateRuleDialog({
         }
     };
 
-    const updateMatchCondition = (
-        field: keyof RuleFormData,
-        updates: Partial<MatchCondition>
-    ) => {
-        setFormData(prev => {
-            const newData = {
-                ...prev,
-                [field]: {
-                    ...prev[field],
-                    ...updates
-                }
-            };
-
-            if (updates.enabled && transaction) {
-                switch (field) {
-                    case 'type':
-                        newData.type.pattern = transaction.type;
-                        break;
-                    case 'category':
-                        newData.category.pattern = transaction.category;
-                        break;
-                    case 'peer':
-                        newData.peer.pattern = transaction.counterparty;
-                        break;
-                    case 'desc':
-                        newData.desc.pattern = transaction.description;
-                        break;
-                    case 'time':
-                        const timeMatch = transaction.transactionTime.match(/\d{2}:\d{2}/);
-                        if (timeMatch) {
-                            const time = timeMatch[0];
-                            newData.time.start = time;
-                            newData.time.end = time;
-                        }
-                        break;
-                    case 'amount':
-                        const amount = parseFloat(transaction.amount);
-                        newData.amount.min = (amount * 0.9).toFixed(2);
-                        newData.amount.max = (amount * 1.1).toFixed(2);
-                        break;
-                    case 'status':
-                        newData.status.pattern = transaction.status;
-                        break;
-                    case 'method':
-                        newData.method.pattern = transaction.paymentMethod;
-                        break;
-                }
+    const updateMatchCondition = (field: keyof RuleFormData, updates: Partial<MatchCondition>) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: {
+                ...(prev[field] as MatchCondition),
+                ...updates
             }
-
-            return newData;
-        });
+        }));
     };
 
     return (

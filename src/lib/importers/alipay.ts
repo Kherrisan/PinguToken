@@ -1,15 +1,49 @@
 import { parse } from 'csv-parse';
 import { readFileSync } from 'fs';
 import { prisma } from '@/lib/prisma';
-import iconv from 'iconv-lite';
 import { ImportRecord } from '@/lib/types/transaction';
 import { RawTransaction, Transaction } from '@prisma/client';
 
-interface ProcessedRecord {
-    record: ImportRecord;
-    rawTransaction: RawTransaction;
-    amount: number;
-    date: Date;
+// 处理单条记录
+export async function processRawRecord(record: ImportRecord) {
+    // 检查是否已导入
+    const existingRawTx = await prisma.rawTransaction.findUnique({
+        where: {
+            source_identifier: {
+                source: 'alipay',
+                identifier: record.transactionNo.trim()
+            }
+        },
+        include: {
+            transaction: true
+        }
+    });
+
+    // 如果已经有关联的交易记录，跳过处理
+    if (existingRawTx?.transaction) {
+        return null;
+    }
+
+    // 清理和转换数据
+    const amount = parseFloat(record.amount.replace(/[,¥]/g, ''));
+    const date = new Date(record.transactionTime);
+
+    // 获取或创建原始记录
+    const rawTransaction = existingRawTx || await prisma.rawTransaction.create({
+        data: {
+            source: 'alipay',
+            identifier: record.transactionNo.trim(),
+            rawData: record as any,
+            createdAt: date
+        }
+    });
+
+    return {
+        record,
+        rawTransaction,
+        amount,
+        date
+    };
 }
 
 // 解析CSV文件
@@ -69,100 +103,6 @@ export async function parseAlipayCSV(filePath: string): Promise<ImportRecord[]> 
     }
 
     return records;
-}
-
-// 处理单条记录
-async function processRawRecord(record: ImportRecord): Promise<ProcessedRecord | null> {
-    // 检查是否已导入
-    const existingRawTx = await prisma.rawTransaction.findUnique({
-        where: {
-            source_identifier: {
-                source: 'alipay',
-                identifier: record.transactionNo.trim()
-            }
-        },
-        include: {
-            transaction: true
-        }
-    });
-
-    // 如果已经有关联的交易记录，跳过处理
-    if (existingRawTx?.transaction) {
-        return null;
-    }
-
-    // 清理和转换数据
-    const amount = parseFloat(record.amount.replace(',', ''));
-    const date = new Date(record.transactionTime);
-
-    // 获取或创建原始记录
-    const rawTransaction = existingRawTx || await prisma.rawTransaction.create({
-        data: {
-            source: 'alipay',
-            identifier: record.transactionNo.trim(),
-            rawData: JSON.stringify(record),
-            createdAt: date
-        }
-    });
-
-    return {
-        record,
-        rawTransaction,
-        amount,
-        date
-    };
-}
-
-// 根据账户路径获取或创建账户
-async function getOrCreateAccount(accountPath: string): Promise<string> {
-    const parts = accountPath.split(':');
-    let parentId: string | null = null;
-    let currentPath = '';
-
-    for (let i = 0; i < parts.length; i++) {
-        const name = parts[i];
-        currentPath = currentPath ? `${currentPath}:${name}` : name;
-        const type = i === 0 ? getAccountType(parts[0]) : undefined;
-
-        try {
-            // 先尝试查找已存在的账户
-            let currentAccount = await prisma.account.findUnique({
-                where: { id: currentPath }
-            });
-
-            // 如果账户不存在，则创建新账户
-            if (!currentAccount) {
-                currentAccount = await prisma.account.create({
-                    data: {
-                        id: currentPath,
-                        name,
-                        type: type ?? 'EXPENSES',
-                        currency: 'CNY',
-                        parentId
-                    }
-                });
-            }
-
-            parentId = currentPath;
-        } catch (error) {
-            console.error(`Error creating account ${accountPath} at part ${name}:`, error);
-            throw error;
-        }
-    }
-
-    return currentPath;  // 返回完整的账户路径作为 ID
-}
-
-// 根据账户路径第一段判断账户类型
-function getAccountType(firstPart: string): 'ASSETS' | 'LIABILITIES' | 'INCOME' | 'EXPENSES' | 'EQUITY' {
-    const typeMap: Record<string, 'ASSETS' | 'LIABILITIES' | 'INCOME' | 'EXPENSES' | 'EQUITY'> = {
-        'Assets': 'ASSETS',
-        'Liabilities': 'LIABILITIES',
-        'Income': 'INCOME',
-        'Expenses': 'EXPENSES',
-        'Equity': 'EQUITY'
-    };
-    return typeMap[firstPart] || 'EXPENSES';
 }
 
 interface CreateTransactionParams {

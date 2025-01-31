@@ -54,7 +54,7 @@ export default async function TransactionPage({
                             <div className="space-y-2">
                                 <div>
                                     <span className="font-medium">数据来源：</span>
-                                    {transaction.rawRecords[0]?.source.name || "手动录入"}
+                                    {transaction.rawRecords[0]?.source || "手动录入"}
                                 </div>
                                 {transaction.rawRecords[0] && (
                                     <>

@@ -165,7 +165,7 @@ export const columns: ColumnDef<Account>[] = [
         accessorKey: "type",
         header: "类型",
         cell: ({ row }) => {
-            return accountTypeNames[row.getValue("type")]
+            return accountTypeNames[row.getValue("type") as AccountType]
         }
     },
     {

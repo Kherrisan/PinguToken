@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { ErrorResponse, ImportResponse, processRawRecord } from '../alipay/route';
+import { ErrorResponse, ImportResponse } from '../alipay/route';
 import { unlink, writeFile } from 'fs/promises';
 import { parseWeChatCSV } from '@/lib/importers/wechatpay';
 import { matchTransactions } from '@/lib/importers/matcher';
-import { createTransaction } from '@/lib/importers/alipay';
+import { createTransaction, processRawRecord } from '@/lib/importers/alipay';
 
 export async function POST(request: Request) {
     try {

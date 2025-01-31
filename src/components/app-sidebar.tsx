@@ -42,11 +42,11 @@ const data = {
   navMain: [
     {
       title: "概览",
+      url: "/dashboard/overview",
       items: [
         {
           title: "资产概览",
           url: "/dashboard/overview",
-          icon: PieChart,
         },
       ],
     },

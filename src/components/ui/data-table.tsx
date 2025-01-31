@@ -27,12 +27,14 @@ interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[]
     data: TData[]
     enableRowClick?: boolean
+    meta?: Record<string, any>
 }
 
 export function DataTable<TData, TValue>({
     columns,
     data,
-    enableRowClick = false
+    enableRowClick = false,
+    meta
 }: DataTableProps<TData, TValue>) {
     const router = useRouter()
     const [sorting, setSorting] = React.useState<SortingState>([])
@@ -47,6 +49,7 @@ export function DataTable<TData, TValue>({
         state: {
             sorting,
         },
+        meta,
     })
 
     return (
