@@ -124,7 +124,7 @@ export function RawTransactionFileUploader({ source }: RawTransactionFileUploade
                 </Alert>
             )}
 
-            {matchResults?.unmatched.length > 0 && (
+            { matchResults?.unmatched && matchResults.unmatched.length > 0 && (
                 <UnmatchedTransactions
                     transactions={matchResults.unmatched}
                     onRuleCreated={(ruleId) => {

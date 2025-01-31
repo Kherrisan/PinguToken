@@ -139,8 +139,8 @@ export async function GET(request: Request) {
         };
 
         // 添加分页
-        const page = parseInt(params.page);
-        const pageSize = parseInt(params.pageSize);
+        const page = parseInt(params.page || '1');
+        const pageSize = parseInt(params.pageSize || '10');
         const skip = (page - 1) * pageSize;
 
         // 获取总数
