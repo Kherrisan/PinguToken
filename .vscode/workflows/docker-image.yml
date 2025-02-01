@@ -7,7 +7,7 @@ on:
     branches: ["pre"]
 
 jobs:
-  build:
+  push:
     env:
       IMAGE_NAME: pingu-token-pre
     runs-on: ubuntu-latest
