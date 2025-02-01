@@ -29,3 +29,6 @@ jobs:
           echo VERSION=$VERSION
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
+      - name: Trigger dokploy redeploy
+        run: |
+          curl -X GET ${{ secrets.DOKPROY_WEBHOOK_URL }}
