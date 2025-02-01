@@ -37,11 +37,13 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT 3000
+RUN apk add --no-cache openssl
+
+ENV DATABASE_URL=postgresql://pingutoken-db-app:pingutoken-db-app-970514@pingutoken-db-uacksj:5432/pingutoken-db
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry.
 # ENV NEXT_TELEMETRY_DISABLED 1
-
 
 CMD ["node_modules/.bin/next", "start"]
