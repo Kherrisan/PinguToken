@@ -37,8 +37,8 @@ export async function POST(request: Request) {
                 // 创建结构化交易记录
                 await createTransaction({
                     record,
-                    targetAccount,
-                    methodAccount,
+                    targetAccount: targetAccount!,
+                    methodAccount: methodAccount!,
                     rawTransaction,
                     amount,
                     date

@@ -23,8 +23,8 @@ model Account {
 model Transaction {
   id         String           @id @default(cuid())
   date       DateTime
-  payee      String
-  narration  String
+  payee      String?
+  narration  String?
   createdAt  DateTime
   updatedAt  DateTime         @updatedAt
   importedAt DateTime         @default(now())

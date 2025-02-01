@@ -21,7 +21,7 @@ import { InfoIcon } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 interface CreateRuleDialogProps {
-    transaction: ImportRecord | undefined;
+    transaction: ImportRecord | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onRuleCreated: (ruleId: string, matched: boolean) => void;
