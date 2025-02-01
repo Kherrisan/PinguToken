@@ -365,6 +365,11 @@ async function createAccount(account: AccountSeed, parentId: string | null = nul
 }
 
 async function main() {
+    const existingData = await prisma.importSource.findFirst();
+    if (existingData) {
+        console.log('Database already seeded, skipping...');
+        return;
+    }
     // 创建导入源
     await prisma.importSource.create({
         data: {
