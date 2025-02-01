@@ -19,6 +19,8 @@ RUN yarn build && yarn install --production --ignore-scripts --prefer-offline
 FROM node:alpine AS runner
 WORKDIR /app
 
+RUN apk add --no-cache openssl
+
 ENV NODE_ENV production
 
 RUN addgroup -g 1001 -S nodejs
@@ -37,7 +39,6 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT 3000
-RUN apk add --no-cache openssl
 
 ENV DATABASE_URL=postgresql://pingutoken-db-app:pingutoken-db-app-970514@pingutoken-db-uacksj:5432/pingutoken-db
 
