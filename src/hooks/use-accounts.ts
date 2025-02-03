@@ -1,4 +1,4 @@
-import { Account } from '@/app/dashboard/accounts/columns'
+import { Account } from '@/app/app/accounts/columns'
 import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
