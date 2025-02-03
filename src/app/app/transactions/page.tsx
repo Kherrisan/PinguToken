@@ -139,7 +139,7 @@ export default function TransactionsPage() {
                 },
                 body: JSON.stringify({
                     date: data.dateTime,
-                    payee: data.counterparty,
+                    counterparty: data.counterparty,
                     narration: data.narration,
                     postings: data.postings.map((detail: any) => ({
                         accountId: detail.accountId,

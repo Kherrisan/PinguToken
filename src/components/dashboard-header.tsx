@@ -16,17 +16,21 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 
 // 定义路由映射和对应的链接
 const routeConfig: Record<string, { paths: string[], links: string[] }> = {
-    '/dashboard': {
+    '/app': {
         paths: ['首页'],
-        links: ['/dashboard']
+        links: ['/app']
     },
-    '/dashboard/transactions': {
-        paths: ['交易', '数据表'],
-        links: ['/dashboard', '/dashboard/transactions']
+    '/app/overview': {
+        paths: ['资产概览'],
+        links: ['/app/overview']
     },
-    '/dashboard/importer': {
-        paths: ['交易', '导入'],
-        links: ['/dashboard', '/dashboard/importer']
+    '/app/transactions': {
+        paths: ['交易记录'],
+        links: ['/app/transactions']
+    },
+    '/app/importer': {
+        paths: ['导入账单'],
+        links: ['/app/importer']
     },
     '/dashboard/accounts': {
         paths: ['账户', '管理'],

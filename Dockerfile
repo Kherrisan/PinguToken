@@ -29,9 +29,7 @@ RUN adduser -S nextjs -u 1001
 # You only need to copy next.config.js if you are NOT using the default configuration
 # COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
 USER nextjs
@@ -39,8 +37,6 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT 3000
-
-ENV DATABASE_URL=postgresql://pingutoken-db-app:pingutoken-db-app-970514@pingutoken-db-uacksj:5432/pingutoken-db
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry

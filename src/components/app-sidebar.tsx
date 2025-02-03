@@ -2,169 +2,100 @@
 
 import * as React from "react"
 import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
-  ListTodo,
+  LayoutDashboard,
   Wallet,
+  FileInput,
+  BarChart3,
+  Settings,
+  GalleryVerticalEnd,
+  Building2,
+  Tags,
+  FileText,
+  LineChart,
+  PieChart,
+  SaveAll,
 } from "lucide-react"
 import Link from "next/link"
 
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { NavMain } from "@/components/nav-main"
 
-// This is sample data.
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+const navItems = [
+  {
+    title: "资产概览",
+    url: "/app/overview",
+    group: "Home",
+    icon: LayoutDashboard,
   },
-  navMain: [
-    {
-      title: "概览",
-      url: "/dashboard/overview",
-      items: [
-        {
-          title: "资产概览",
-          url: "/dashboard/overview",
-        },
-      ],
-    },
-    {
-      title: "交易",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "数据表",
-          url: "/dashboard/transactions",
-        },
-        {
-          title: "导入",
-          url: "/dashboard/importer",
-        },
-        {
-          title: "设置",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "账户",
-      url: "#",
-      icon: Wallet,
-      items: [
-        {
-          title: "账户列表",
-          url: "/dashboard/accounts",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
-}
+  {
+    title: "交易记录",
+    url: "/app/transactions",
+    group: "Home",
+    icon: Wallet,
+  },
+  {
+    title: "账户管理",
+    url: "/app/accounts",
+    group: "Home",
+    icon: Building2,
+  },
+  {
+    title: "标签管理",
+    url: "/app/tags",
+    group: "Home",
+    icon: Tags,
+  },
+  {
+    title: "导入账单",
+    url: "/app/importer",
+    group: "Home",
+    icon: FileInput,
+  },
+  {
+    title: "导入规则",
+    url: "/app/import-rules",
+    group: "Home",
+    icon: FileText,
+  },
+  {
+    title: "收支趋势",
+    url: "/app/analytics/trends",
+    group: "Analytics",
+    icon: LineChart,
+  },
+  {
+    title: "账户余额",
+    url: "/app/analytics/balances",
+    group: "Analytics",
+    icon: BarChart3,
+  },
+  {
+    title: "分类统计",
+    url: "/app/analytics/categories",
+    group: "Analytics",
+    icon: PieChart,
+  },
+  {
+    title: "基本设置",
+    url: "/app/settings",
+    group: "Extra",
+    icon: Settings,
+  },
+  {
+    title: "数据备份",
+    url: "/app/settings/backup",
+    group: "Extra",
+    icon: SaveAll,
+  },
+]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -173,22 +104,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="#">
+              <Link href="/app">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <GalleryVerticalEnd className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Documentation</span>
+                  <span className="font-semibold">记账系统</span>
                   <span className="">v1.0.0</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavMain items={navItems} />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

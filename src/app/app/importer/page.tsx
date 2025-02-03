@@ -8,7 +8,7 @@ export default function ImporterPage() {
             <div className="flex flex-col gap-6">
                 {/* 页面标题 */}
                 <div>
-                    <h1 className="text-2xl font-semibold">数据导入</h1>
+                    <h1 className="text-2xl font-semibold">导入账单</h1>
                     <p className="text-sm text-muted-foreground">从不同来源导入交易数据</p>
                 </div>
 

@@ -108,7 +108,7 @@ export default function AccountsPage() {
                 {/* 页面标题和操作 */}
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-2xl font-semibold">账户列表</h1>
+                        <h1 className="text-2xl font-semibold">账户管理</h1>
                         <p className="text-sm text-muted-foreground">查看所有账户及其余额</p>
                     </div>
                     <Button onClick={() => setShowCreateDialog(true)}>
