@@ -8,7 +8,7 @@ export default function Page() {
                 <h1 className="text-4xl font-bold">记账助手</h1>
                 <p className="text-xl">轻松管理您的个人财务</p>
                 <Button asChild>
-                    <Link href="/dashboard">开始使用</Link>
+                    <Link href="/app">开始使用</Link>
                 </Button>
             </div>
         </main>
