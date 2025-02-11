@@ -6,39 +6,50 @@ import { ImportSourceSelector } from "@/components/importers/source-selector"
 import { PasswordDialog } from "@/components/importers/password-dialog"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
+import { UnmatchedTransactions } from "@/components/importers/unmatched-transactions"
+import { MatchResult } from "@/lib/importers/matcher"
 
 interface EmailResult {
     id: string;
     subject: string;
     date: Date;
-    hasAttachment: boolean;
-    attachmentName?: string;
+    provider: string;
+    downloadLink?: string;
 }
+
+const PROVIDERS = ['wechatpay', 'alipay'] as const;
+type Provider = typeof PROVIDERS[number];
 
 export default function ImporterPage() {
     const [isChecking, setIsChecking] = useState(false);
     const [newEmails, setNewEmails] = useState<EmailResult[]>([]);
     const [selectedEmail, setSelectedEmail] = useState<EmailResult | null>(null);
     const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+    const [unmatchedTransactions, setUnmatchedTransactions] = useState<MatchResult[]>([]);
 
     async function checkEmails() {
         if (isChecking) return;
         
         try {
             setIsChecking(true);
-            const response = await fetch('/api/mail/check');
-            const data = await response.json();
-            
-            if (data.success) {
-                setNewEmails(data.data);
-                if (data.data.length > 0) {
-                    toast({
-                        title: "发现新账单",
-                        description: `发现 ${data.data.length} 封新账单邮件`,
-                    });
+            const results: EmailResult[] = [];
+
+            // 检查所有提供商
+            for (const provider of PROVIDERS) {
+                const response = await fetch(`/api/mail/check/${provider}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.length > 0) {
+                    results.push(...data.data);
                 }
-            } else {
-                throw new Error(data.error);
+            }
+
+            setNewEmails(results);
+            if (results.length > 0) {
+                toast({
+                    title: "发现新账单",
+                    description: `发现 ${results.length} 封新账单邮件`,
+                });
             }
         } catch (error) {
             console.error('Failed to check emails:', error);
@@ -62,12 +73,49 @@ export default function ImporterPage() {
     };
 
     const handlePasswordConfirm = async (password: string) => {
-        if (!selectedEmail) return;
+        if (!selectedEmail?.downloadLink) return;
 
-        // TODO: 调用API处理解压缩和导入
+        try {
+            const response = await fetch('/api/mail/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    downloadLink: selectedEmail.downloadLink,
+                    provider: selectedEmail.provider,
+                    password,
+                    emailDate: selectedEmail.date
+                }),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                setUnmatchedTransactions(result.data.unmatched);
+                setIsPasswordDialogOpen(false);
+                toast({
+                    title: "导入成功",
+                    description: `成功导入 ${result.data.matched} 条记录，${result.data.unmatched.length} 条待匹配`,
+                });
+                // 刷新邮件列表
+                checkEmails();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            toast({
+                title: "导入失败",
+                description: error instanceof Error ? error.message : "处理账单时出错",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleRuleCreated = (ruleId: string) => {
+        // 可以在这里处理规则创建后的逻辑
         toast({
-            title: "处理中",
-            description: "正在处理账单文件...",
+            title: "规则创建成功",
+            description: "新规则已创建并应用",
         });
     };
 
@@ -96,16 +144,31 @@ export default function ImporterPage() {
                                             <div className="text-sm text-muted-foreground">
                                                 {new Date(email.date).toLocaleString()}
                                             </div>
+                                            <div className="text-sm text-muted-foreground">
+                                                来源: {email.provider}
+                                            </div>
                                         </div>
                                         <Button
                                             onClick={() => handleEmailSelect(email)}
-                                            disabled={!email.hasAttachment}
+                                            disabled={!email.downloadLink}
                                         >
                                             处理账单
                                         </Button>
                                     </div>
                                 ))}
                             </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {unmatchedTransactions.length > 0 && (
+                    <Card>
+                        <CardContent className="pt-6">
+                            <UnmatchedTransactions
+                                transactions={unmatchedTransactions}
+                                onRuleCreated={handleRuleCreated}
+                                provider={selectedEmail?.provider || ''}
+                            />
                         </CardContent>
                     </Card>
                 )}
@@ -136,7 +199,7 @@ export default function ImporterPage() {
                 open={isPasswordDialogOpen}
                 onOpenChange={setIsPasswordDialogOpen}
                 emailId={selectedEmail?.id || ''}
-                fileName={selectedEmail?.attachmentName || ''}
+                fileName={selectedEmail?.subject || ''}
                 onConfirm={handlePasswordConfirm}
             />
         </div>

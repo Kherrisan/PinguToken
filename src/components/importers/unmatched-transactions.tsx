@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 interface UnmatchedTransactionsProps {
     transactions: MatchResult[];
     onRuleCreated: (ruleId: string) => void;
+    provider: string;
 }
 
 interface ManualMatchDialogProps {
@@ -134,7 +135,7 @@ function ManualMatchDialog({
     )
 }
 
-export function UnmatchedTransactions({ transactions: initialTransactions, onRuleCreated }: UnmatchedTransactionsProps) {
+export function UnmatchedTransactions({ transactions: initialTransactions, onRuleCreated, provider }: UnmatchedTransactionsProps) {
     const [selectedTransaction, setSelectedTransaction] = useState<ImportRecord | null>(null);
     const [manualMatchTransaction, setManualMatchTransaction] = useState<MatchResult | null>(null);
     const [transactions, setTransactions] = useState<TransactionWithStatus[]>(initialTransactions);
@@ -197,9 +198,7 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
 
         try {
             // 重新匹配剩余的未匹配交易
-            const remainingTransactions = transactions.filter(tx => 
-                tx.record.transactionNo !== currentTransaction.transactionNo
-            );
+            const remainingTransactions = transactions;
 
             // 一次性发送所有交易进行匹配检查
             const tryMatchResponse = await fetch('/api/import/try-match', {
@@ -208,7 +207,7 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    source: 'alipay',
+                    source: provider,
                     transactions: remainingTransactions.map(tx => tx.record)
                 }),
             });
@@ -218,7 +217,6 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
             // 更新交易列表，标记可匹配的交易
             setTransactions(prev => {
                 return prev
-                    .filter(tx => tx.record.transactionNo !== currentTransaction.transactionNo)
                     .map(tx => {
                         const matchResult = matchResults.find(
                             r => r.transactionNo === tx.record.transactionNo
@@ -388,6 +386,7 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
                 open={!!selectedTransaction}
                 onOpenChange={(open) => !open && setSelectedTransaction(null)}
                 onRuleCreated={handleRuleCreated}
+                sourceId={provider}
             />
 
             {manualMatchTransaction && (

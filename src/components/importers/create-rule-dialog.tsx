@@ -25,6 +25,7 @@ interface CreateRuleDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onRuleCreated: (ruleId: string, matched: boolean) => void;
+    sourceId: string;
 }
 
 interface MatchCondition {
@@ -33,6 +34,7 @@ interface MatchCondition {
 }
 
 interface RuleFormData {
+    sourceId: string;
     name: string;
     description: string;
     targetAccount: string;
@@ -151,14 +153,21 @@ function MatchFieldLabel({ field, children }: { field: string; children: React.R
     );
 }
 
+const SOURCES = [
+    { id: 'wechatpay', name: '微信支付' },
+    { id: 'alipay', name: '支付宝' }
+] as const;
+
 export function CreateRuleDialog({
     transaction,
     open,
     onOpenChange,
-    onRuleCreated
+    onRuleCreated,
+    sourceId
 }: CreateRuleDialogProps) {
     const [isSaving, setIsSaving] = useState(false);
     const [formData, setFormData] = useState<RuleFormData>({
+        sourceId: '',
         name: '',
         description: '',
         targetAccount: '',
@@ -182,14 +191,27 @@ export function CreateRuleDialog({
     useEffect(() => {
         if (transaction) {
             setFormData({
+                sourceId: sourceId,
                 name: '',
                 description: '',
                 targetAccount: '',
                 methodAccount: '',
-                type: { enabled: false },
-                category: { enabled: false },
-                peer: { enabled: false },
-                desc: { enabled: false },
+                type: { 
+                    enabled: false,
+                    pattern: transaction.type  // 设置初始值
+                },
+                category: { 
+                    enabled: false,
+                    pattern: transaction.category  // 设置初始值
+                },
+                peer: { 
+                    enabled: false,
+                    pattern: transaction.counterparty  // 设置初始值
+                },
+                desc: { 
+                    enabled: false,
+                    pattern: transaction.description  // 设置初始值
+                },
                 time: { enabled: false },
                 amount: { enabled: false },
                 status: {
@@ -202,7 +224,7 @@ export function CreateRuleDialog({
                 }
             });
         }
-    }, [transaction]);
+    }, [transaction, sourceId]);
 
     const handleSubmit = async () => {
         if (!transaction) return;
@@ -216,7 +238,7 @@ export function CreateRuleDialog({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    sourceId: 'alipay',
+                    sourceId: formData.sourceId,
                     name: formData.name,
                     description: formData.description,
                     targetAccount: formData.targetAccount,
@@ -246,7 +268,7 @@ export function CreateRuleDialog({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    source: 'alipay',
+                    source: sourceId,
                     transactions: [transaction]
                 }),
             });
@@ -301,6 +323,21 @@ export function CreateRuleDialog({
                 <div className="grid gap-6 py-4">
                     {/* 基本信息 */}
                     <div className="grid gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="sourceId">账单来源</Label>
+                            <select
+                                id="sourceId"
+                                value={formData.sourceId}
+                                onChange={(e) => setFormData(prev => ({ ...prev, sourceId: e.target.value }))}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                            >
+                                {SOURCES.map(source => (
+                                    <option key={source.id} value={source.id}>
+                                        {source.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                         <div className="grid gap-2">
                             <Label htmlFor="name">规则名称</Label>
                             <Input

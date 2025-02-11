@@ -1,8 +1,6 @@
-import Imap from 'imap';
-import { simpleParser } from 'mailparser';
-import { Readable } from 'stream';
+import { ImapFlow } from 'imapflow';
 
-interface EmailConfig {
+interface MailConfig {
     user: string;
     password: string;
     host: string;
@@ -10,116 +8,119 @@ interface EmailConfig {
     tls: boolean;
 }
 
-interface EmailSearchOptions {
-    subject?: string;
-    since?: Date;
-    to?: string;
+interface SearchFilter {
+    since: Date;
     from?: string;
 }
 
-const formatDate = (date: Date) => {
-    // 格式化为 "1-Jan-2024" 格式
-    return date.toLocaleString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    }).replace(/,/g, '');
-};
+interface SearchOptions {
+    since: Date;
+    from?: string;
+}
+
+interface EmailAttachment {
+    filename: string;
+    content: Buffer;
+}
+
+interface Email {
+    messageId: string;
+    subject: string;
+    date: Date;
+    from?: {
+        value: Array<{
+            address?: string;
+            name?: string;
+        }>;
+    };
+    html?: string;
+    attachments?: EmailAttachment[];
+}
 
 export class MailService {
-    private imap: Imap;
+    private client: ImapFlow;
 
-    constructor(config: EmailConfig) {
-        this.imap = new Imap({
-            user: config.user,
-            password: config.password,
+    constructor(config: MailConfig) {
+        this.client = new ImapFlow({
             host: config.host,
             port: config.port,
-            tls: config.tls,
+            secure: config.tls,
+            auth: {
+                user: config.user,
+                pass: config.password
+            },
+            logger: false
         });
     }
 
-    async connect(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            this.imap.once('ready', resolve);
-            this.imap.once('error', reject);
-            this.imap.connect();
-        });
+    async connect() {
+        await this.client.connect();
     }
 
+    async disconnect() {
+        await this.client.logout();
+    }
 
-    async searchEmails(options: EmailSearchOptions): Promise<any[]> {
-        return new Promise((resolve, reject) => {
-            this.imap.openBox('INBOX', false, (err, box) => {
-                if (err) reject(err);
+    async searchEmails({ since, from }: SearchOptions): Promise<Email[]> {
+        const results: Email[] = [];
 
-                const searchCriteria: (string | string[])[] = [];
-                if (options.subject) searchCriteria.push(['SUBJECT', options.subject]);
-                if (options.since) searchCriteria.push(['SINCE', 'Feb 5, 2025']);
-                if (options.from) searchCriteria.push(['FROM', options.from]);
-                if (options.to) searchCriteria.push(['TO', options.to]);
+        // 选择收件箱
+        await this.client.mailboxOpen('INBOX');
 
-                this.imap.search(searchCriteria, (err, results) => {
-                    if (err) reject(err);
-                    if (!results || results.length === 0) {
-                        resolve([]);
-                        return;
+        // 构建搜索条件
+        const searchFilter: SearchFilter = { since };
+        if (from) searchFilter.from = from;
+
+        // 搜索邮件
+        for await (const message of this.client.fetch(searchFilter, {
+            envelope: true,
+            bodyStructure: true,
+            bodyParts: ['TEXT', 'HTML']
+        })) {
+            const email: Email = {
+                messageId: message.envelope.messageId,
+                subject: message.envelope.subject,
+                date: message.envelope.date,
+                from: {
+                    value: message.envelope.from.map(f => ({
+                        address: f.address,
+                        name: f.name
+                    }))
+                }
+            };
+
+            if (message.bodyStructure?.childNodes) {
+                // 处理 HTML 内容
+                const htmlPart = message.bodyStructure.childNodes.find(
+                    part => part.type === 'text/html'
+                );
+                if (htmlPart) {
+                    const { content } = await this.client.download(message.uid.toString(), htmlPart.part);
+                    const chunks: Buffer[] = [];
+                    for await (const chunk of content) {
+                        chunks.push(chunk);
                     }
+                    email.html = Buffer.concat(chunks).toString();
+                }
 
-                    const emails: any[] = [];
-                    let completed = 0;
+                // 处理 ZIP 附件
+                const zipAttachments = message.bodyStructure.childNodes
+                    .filter(part => 
+                        part.disposition === 'attachment'
+                    )
+                    .map(part => ({
+                        filename: part.dispositionParameters!.filename,
+                        content: Buffer.from([])
+                    }));
 
-                    const fetch = this.imap.fetch(results, {
-                        bodies: '',
-                        struct: true
-                    });
-
-                    fetch.on('message', (msg) => {
-                        msg.on('body', async (stream: Readable) => {
-                            try {
-                                const parsed = await simpleParser(stream);
-                                emails.push(parsed);
-                                completed++;
-                                
-                                // 当所有邮件都处理完成时才解析 Promise
-                                if (completed === results.length) {
-                                    resolve(emails);
-                                }
-                            } catch (error) {
-                                reject(error);
-                            }
-                        });
-                    });
-
-                    fetch.once('error', reject);
-                    
-                    // end 事件只用于错误处理
-                    fetch.once('end', () => {
-                        // if (completed=== results.length) {
-                        //     resolve(emails);
-                        // }
-                    });
-                });
-            });
-        });
-    }
-
-    async downloadAttachment(email: any): Promise<{ filename: string; content: Buffer }[]> {
-        const attachments: { filename: string; content: Buffer }[] = [];
-        
-        if (email.attachments && email.attachments.length > 0) {
-            for (const attachment of email.attachments) {
-                attachments.push({
-                    filename: attachment.filename,
-                    content: attachment.content
-                });
+                if (zipAttachments.length > 0) {
+                    email.attachments = zipAttachments;
+                }
             }
+
+            results.push(email);
         }
 
-        return attachments;
-    }
-
-    disconnect(): void {
-        this.imap.end();
+        return results;
     }
 } 

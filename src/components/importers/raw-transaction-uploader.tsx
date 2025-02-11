@@ -127,6 +127,7 @@ export function RawTransactionFileUploader({ source }: RawTransactionFileUploade
             { matchResults?.unmatched && matchResults.unmatched.length > 0 && (
                 <UnmatchedTransactions
                     transactions={matchResults.unmatched}
+                    provider={source}
                     onRuleCreated={(ruleId) => {
                         // 重新匹配交易
                     }}
