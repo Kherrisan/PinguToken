@@ -41,7 +41,7 @@ export default function AccountsPage() {
     // 当搜索条件改变时，重置到第一页
     useEffect(() => {
         setCurrentPage(1)
-    }, [searchQuery, selectedType, pageSize])
+    }, [searchQuery, selectedType])
 
     // 过滤账户列表
     const filteredAccounts = useMemo(() => {
@@ -53,9 +53,19 @@ export default function AccountsPage() {
         })
     }, [accounts, selectedType, searchQuery])
 
+    // 当页面大小改变时，智能调整当前页
+    useEffect(() => {
+        if (filteredAccounts.length > 0) {
+            const newTotalPages = Math.ceil(filteredAccounts.length / pageSize)
+            if (currentPage > newTotalPages) {
+                setCurrentPage(newTotalPages)
+            }
+        }
+    }, [pageSize, filteredAccounts.length, currentPage])
+
     // 计算分页
     const { paginatedAccounts, totalPages } = useMemo(() => {
-        const total = Math.ceil(filteredAccounts.length / pageSize)
+        const total = filteredAccounts.length === 0 ? 0 : Math.ceil(filteredAccounts.length / pageSize)
         const paginated = filteredAccounts.slice(
             (currentPage - 1) * pageSize,
             currentPage * pageSize
@@ -73,7 +83,8 @@ export default function AccountsPage() {
 
     // 处理每页条数变化
     const handlePageSizeChange = (value: string) => {
-        setPageSize(Number(value))
+        const newPageSize = Number(value)
+        setPageSize(newPageSize)
     }
 
     const handleCreateAccount = async (formData: {
@@ -153,8 +164,8 @@ export default function AccountsPage() {
                 ) : (
                     <div className="space-y-4">
                         <DataTable 
-                            key={`${currentPage}_${pageSize}_${searchQuery}_${selectedType}`}
-                            columns={columns} 
+                            key={`table-${currentPage}-${pageSize}-${searchQuery}-${selectedType}-${paginatedAccounts.length}`}
+                            columns={columns}
                             data={paginatedAccounts}
                             meta={{ mutate }}
                             enableRowClick={false}
@@ -185,13 +196,13 @@ export default function AccountsPage() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-muted-foreground">
-                                    第 {currentPage} / {totalPages} 页
+                                    {totalPages === 0 ? "第 0 / 0 页" : `第 ${currentPage} / ${totalPages} 页`}
                                 </span>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                    disabled={currentPage === 1}
+                                    disabled={currentPage <= 1 || totalPages === 0}
                                 >
                                     上一页
                                 </Button>
@@ -199,7 +210,7 @@ export default function AccountsPage() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={currentPage === totalPages}
+                                    disabled={currentPage >= totalPages || totalPages === 0}
                                 >
                                     下一页
                                 </Button>

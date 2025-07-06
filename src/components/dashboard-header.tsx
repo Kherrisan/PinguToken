@@ -20,6 +20,10 @@ const routeConfig: Record<string, { paths: string[], links: string[] }> = {
         paths: ['首页'],
         links: ['/dashboard']
     },
+    '/dashboard/overview': {
+        paths: ['概览', '资产概览'],
+        links: ['/dashboard/overview']
+    },
     '/dashboard/transactions': {
         paths: ['交易', '数据表'],
         links: ['/dashboard', '/dashboard/transactions']
@@ -29,7 +33,7 @@ const routeConfig: Record<string, { paths: string[], links: string[] }> = {
         links: ['/dashboard', '/dashboard/importer']
     },
     '/dashboard/accounts': {
-        paths: ['账户', '管理'],
+        paths: ['账户', '账户列表'],
         links: ['/dashboard', '/dashboard/accounts']
     },
     '/dashboard/settings': {
