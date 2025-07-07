@@ -14,6 +14,7 @@ import {
   SquareTerminal,
   ListTodo,
   Wallet,
+  ChartNoAxesGantt
 } from "lucide-react"
 import Link from "next/link"
 
@@ -43,6 +44,7 @@ const data = {
     {
       title: "概览",
       url: "/dashboard/overview",
+      icon: ChartNoAxesGantt,
       items: [
         {
           title: "资产概览",
@@ -54,10 +56,9 @@ const data = {
       title: "交易",
       url: "#",
       icon: SquareTerminal,
-      isActive: true,
       items: [
         {
-          title: "数据表",
+          title: "交易列表",
           url: "/dashboard/transactions",
         },
         {
@@ -168,7 +169,7 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

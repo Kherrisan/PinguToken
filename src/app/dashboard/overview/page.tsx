@@ -45,10 +45,10 @@ export default function OverviewPage() {
                     <p className="text-sm text-muted-foreground">查看您的资产分布情况</p>
                 </div>
 
-                {/* 总资产卡片 */}
+                {/* 净资产卡片 */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>总资产</CardTitle>
+                        <CardTitle>净资产</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold">

@@ -25,7 +25,7 @@ const routeConfig: Record<string, { paths: string[], links: string[] }> = {
         links: ['/dashboard/overview']
     },
     '/dashboard/transactions': {
-        paths: ['交易', '数据表'],
+        paths: ['交易', '交易列表'],
         links: ['/dashboard', '/dashboard/transactions']
     },
     '/dashboard/importer': {
@@ -50,7 +50,7 @@ export function DashboardHeader() {
     let links: string[] = []
     
     if (pathname.startsWith('/dashboard/transactions/')) {
-        paths = ['交易', '数据表', '交易详情']
+        paths = ['交易', '交易列表', '交易详情']
         links = ['/dashboard', '/dashboard/transactions', pathname]
     } else {
         const config = routeConfig[pathname]

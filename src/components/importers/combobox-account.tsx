@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Plus } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -86,84 +86,106 @@ export function ComboboxAccount({ value, onValueChange }: ComboboxAccountProps) 
         }
     }
 
+    const handleClearSelection = (e: React.MouseEvent) => {
+        e.stopPropagation() // 阻止事件冒泡，避免触发下拉框
+        onValueChange("")
+    }
+
     return (
         <>
-            <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={open}
-                        className="w-full justify-between"
-                    >
-                        {value
-                            ? accounts?.find((account) => account.id === value)?.fullPath
-                            : "选择账户..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-4" align="start">
-                    <div className="space-y-2">
-                        <Input
-                            placeholder="搜索账户..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-8"
-                        />
-                        <ScrollArea className="h-[200px]">
-                            <div className="space-y-1">
-                                {isLoading ? (
-                                    <div className="text-sm text-muted-foreground p-2">
-                                        加载中...
-                                    </div>
-                                ) : filteredAccounts.length === 0 ? (
-                                    <div className="text-sm text-muted-foreground p-2">
-                                        未找到账户
-                                    </div>
-                                ) : (
-                                    filteredAccounts.map((account) => (
-                                        <Button
-                                            key={account.id}
-                                            variant="ghost"
-                                            role="option"
-                                            onClick={() => {
-                                                onValueChange(account.id)
-                                                setOpen(false)
-                                            }}
-                                            className={cn(
-                                                "w-full justify-start font-normal",
-                                                value === account.id && "bg-accent"
-                                            )}
-                                        >
-                                            <Check
-                                                className={cn(
-                                                    "mr-2 h-4 w-4",
-                                                    value === account.id 
-                                                        ? "opacity-100" 
-                                                        : "opacity-0"
-                                                )}
-                                            />
-                                            {account.fullPath}
-                                        </Button>
-                                    ))
-                                )}
-                            </div>
-                        </ScrollArea>
-                        <Separator className="my-2" />
+            <div className="relative">
+                <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
                         <Button
                             variant="outline"
-                            className="w-full justify-start"
-                            onClick={() => {
-                                setShowCreateDialog(true)
-                                setOpen(false)
-                            }}
+                            role="combobox"
+                            aria-expanded={open}
+                            className="w-full justify-between pl-10 pr-10"
                         >
-                            <Plus className="mr-2 h-4 w-4" />
-                            创建新账户
+                            <ChevronsUpDown className="absolute left-3 h-4 w-4 shrink-0 opacity-50" />
+                            <span className="truncate">
+                                {value
+                                    ? accounts?.find((account) => account.id === value)?.fullPath
+                                    : "选择账户..."}
+                            </span>
                         </Button>
-                    </div>
-                </PopoverContent>
-            </Popover>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-4" align="start">
+                        <div className="space-y-2">
+                            <Input
+                                placeholder="搜索账户..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="h-8"
+                            />
+                            <ScrollArea className="h-[200px]">
+                                <div className="space-y-1">
+                                    {isLoading ? (
+                                        <div className="text-sm text-muted-foreground p-2">
+                                            加载中...
+                                        </div>
+                                    ) : filteredAccounts.length === 0 ? (
+                                        <div className="text-sm text-muted-foreground p-2">
+                                            未找到账户
+                                        </div>
+                                    ) : (
+                                        filteredAccounts.map((account) => (
+                                            <Button
+                                                key={account.id}
+                                                variant="ghost"
+                                                role="option"
+                                                onClick={() => {
+                                                    onValueChange(account.id)
+                                                    setOpen(false)
+                                                }}
+                                                className={cn(
+                                                    "w-full justify-start font-normal",
+                                                    value === account.id && "bg-accent"
+                                                )}
+                                            >
+                                                <Check
+                                                    className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        value === account.id 
+                                                            ? "opacity-100" 
+                                                            : "opacity-0"
+                                                    )}
+                                                />
+                                                {account.fullPath}
+                                            </Button>
+                                        ))
+                                    )}
+                                </div>
+                            </ScrollArea>
+                            <Separator className="my-2" />
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    setShowCreateDialog(true)
+                                    setOpen(false)
+                                }}
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                创建新账户
+                            </Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+                
+                {/* 清除按钮 - 只有在有选择时才显示 */}
+                {value && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearSelection}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 p-0 hover:bg-destructive/20"
+                        title="清除选择"
+                    >
+                        <X className="h-3 w-3" />
+                    </Button>
+                )}
+            </div>
 
             <CreateAccountDialog
                 open={showCreateDialog}
