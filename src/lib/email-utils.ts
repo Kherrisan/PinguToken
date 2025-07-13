@@ -1,29 +1,35 @@
 import Imap from 'imap'
-import { ParsedMail, parseMailParser } from 'mailparser'
+import { ParsedMail, simpleParser } from 'mailparser'
 import JSZip from 'jszip'
 import { parse } from 'csv-parse'
 import { decode } from 'iconv-lite'
-import { 
-  EmailInfo, 
-  AttachmentInfo, 
-  BillEmail, 
-  EmailProvider, 
+import {
+  EmailInfo,
+  AttachmentInfo,
+  BillEmail,
+  EmailProvider,
   EMAIL_PROVIDERS,
   CSVParseResult,
-  EmailSearchOptions 
+  EmailSearchOptions
 } from '@/types/email'
+import { Stream } from 'stream'
+import axios from 'axios'
+import fs from 'fs'
 
 export async function parseEmailHeader(imap: Imap, uid: string): Promise<EmailInfo> {
   return new Promise((resolve, reject) => {
     const fetch = imap.fetch(uid, { bodies: 'HEADER' })
-    
+
     fetch.on('message', (msg) => {
       msg.on('body', (stream) => {
-        parseMailParser(stream, (err, parsed) => {
+        simpleParser(stream as unknown as Stream, (err, parsed) => {
           if (err) {
+            console.error('Error parsing email header:', err)
             reject(err)
             return
           }
+
+          console.log('Parsed email:', parsed)
 
           const emailInfo: EmailInfo = {
             uid,
@@ -40,6 +46,8 @@ export async function parseEmailHeader(imap: Imap, uid: string): Promise<EmailIn
             }))
           }
 
+          console.log('Parsed email header:', emailInfo)
+
           resolve(emailInfo)
         })
       })
@@ -52,7 +60,7 @@ export async function parseEmailHeader(imap: Imap, uid: string): Promise<EmailIn
 export async function getEmailAttachments(imap: Imap, uid: string): Promise<{ filename: string; content: Buffer }[]> {
   return new Promise((resolve, reject) => {
     const fetch = imap.fetch(uid, { bodies: '' })
-    
+
     fetch.on('message', (msg) => {
       msg.on('body', (stream) => {
         parseMailParser(stream, (err, parsed) => {
@@ -75,14 +83,38 @@ export async function getEmailAttachments(imap: Imap, uid: string): Promise<{ fi
   })
 }
 
-export async function extractZipFile(zipBuffer: Buffer, password?: string): Promise<{ filename: string; content: Buffer }[]> {
+export async function getEmailContent(imap: Imap, uid: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fetch = imap.fetch(uid, { bodies: '' })
+
+    fetch.on('message', (msg) => {
+      msg.on('body', (stream) => {
+        simpleParser(stream as unknown as Stream, (err, parsed) => {
+          if (err) {
+            reject(err)
+            return
+          }
+          console.log('Parsed email:', parsed || '')
+
+          resolve(parsed.text || '')
+        })
+      })
+    })
+
+    fetch.once('error', reject)
+  })
+}
+
+export async function extractZipFile(zipFilePath: string, password?: string): Promise<{ filename: string; content: Buffer }[]> {
   const zip = new JSZip()
-  
+
+  const fileContent = await fs.promises.readFile(zipFilePath)
+
   try {
-    const loaded = await zip.loadAsync(zipBuffer)
-    
+    const loaded = await zip.loadAsync(fileContent, { password: password })
+
     const files: { filename: string; content: Buffer }[] = []
-    
+
     for (const filename in loaded.files) {
       const file = loaded.files[filename]
       if (!file.dir) {
@@ -98,7 +130,7 @@ export async function extractZipFile(zipBuffer: Buffer, password?: string): Prom
         }
       }
     }
-    
+
     return files
   } catch (error) {
     if (password) {
@@ -130,14 +162,14 @@ export async function parseCSV(csvBuffer: Buffer, filename: string): Promise<CSV
 
     const data: any[] = []
     let headers: string[] = []
-    
+
     const parser = parse({
       columns: false,
       skip_empty_lines: true,
       trim: true,
     })
 
-    parser.on('readable', function() {
+    parser.on('readable', function () {
       let record
       while (record = parser.read()) {
         if (data.length === 0) {
@@ -155,7 +187,7 @@ export async function parseCSV(csvBuffer: Buffer, filename: string): Promise<CSV
     })
 
     parser.on('error', reject)
-    
+
     parser.on('end', () => {
       resolve({
         headers,
@@ -172,49 +204,40 @@ export async function parseCSV(csvBuffer: Buffer, filename: string): Promise<CSV
 export function identifyBillEmailProvider(email: EmailInfo): EmailProvider | null {
   for (const [provider, config] of Object.entries(EMAIL_PROVIDERS)) {
     const providerConfig = config as any
-    
+
     // 检查发件人
     if (providerConfig.fromPattern.test(email.from)) {
       return provider as EmailProvider
     }
-    
+
     // 检查主题
     if (providerConfig.subjectPattern.test(email.subject)) {
       return provider as EmailProvider
     }
   }
-  
+
   return null
 }
 
 export function isBillEmail(email: EmailInfo): boolean {
   const provider = identifyBillEmailProvider(email)
-  if (!provider) return false
-  
-  // 检查是否有附件
-  if (!email.hasAttachments) return false
-  
-  // 检查附件类型
-  const config = EMAIL_PROVIDERS[provider]
-  return email.attachments.some(att => 
-    config.attachmentPattern.test(att.filename || '')
-  )
+  return provider as EmailProvider ? true : false
 }
 
 export async function searchBillEmails(imap: Imap, options: EmailSearchOptions = {}): Promise<BillEmail[]> {
   return new Promise((resolve, reject) => {
-    const searchCriteria: any[] = ['UNSEEN']
-    
+    const searchCriteria: any[] = [['FROM', 'wechatpay@tencent.com']]
+
     if (options.since) {
       searchCriteria.push(['SINCE', options.since])
     }
-    
+
     if (options.before) {
       searchCriteria.push(['BEFORE', options.before])
     }
-    
+
     if (options.hasAttachments) {
-      searchCriteria.push('HEADER')
+      // searchCriteria.push('HEADER')
     }
 
     imap.search(searchCriteria, async (err, results) => {
@@ -230,10 +253,11 @@ export async function searchBillEmails(imap: Imap, options: EmailSearchOptions =
 
       try {
         const billEmails: BillEmail[] = []
-        
+
         for (const uid of results) {
+          console.log('uid ', uid)
           const emailInfo = await parseEmailHeader(imap, uid.toString())
-          
+
           if (isBillEmail(emailInfo)) {
             const provider = identifyBillEmailProvider(emailInfo)
             if (provider) {
@@ -248,7 +272,7 @@ export async function searchBillEmails(imap: Imap, options: EmailSearchOptions =
             }
           }
         }
-        
+
         resolve(billEmails)
       } catch (error) {
         reject(error)
@@ -259,9 +283,9 @@ export async function searchBillEmails(imap: Imap, options: EmailSearchOptions =
 
 export function validateCSVData(data: any[], provider: EmailProvider): boolean {
   if (!data || data.length === 0) return false
-  
+
   const firstRow = data[0]
-  
+
   if (provider === 'alipay') {
     // 支付宝账单应该包含这些字段
     const requiredFields = ['商户订单号', '交易号', '交易时间', '付款方式', '交易金额', '交易状态']
@@ -271,6 +295,32 @@ export function validateCSVData(data: any[], provider: EmailProvider): boolean {
     const requiredFields = ['交易时间', '交易类型', '交易对方', '商品', '收/支', '金额', '支付方式', '交易状态']
     return requiredFields.some(field => field in firstRow)
   }
-  
+
   return true
-} 
+}
+
+export async function downloadZipFile(imap: any, uid: string, provider: EmailProvider): Promise<string> {
+  const emailInfo = await parseEmailHeader(imap, uid)
+  const emailContent = await getEmailContent(imap, uid)
+  let file = await EMAIL_PROVIDERS[provider].downloadAttachment(emailInfo, emailContent)
+
+  if (!file.endsWith('.zip')) {
+    await fs.promises.rename(file, `${file}.zip`)
+    file = `${file}.zip`
+  }
+
+  return file
+}
+
+export async function downloadFile(url: string, dir: string): Promise<string> {
+  const resp = await axios.get(url, {
+    responseType: 'blob',
+  });
+
+  const dummyFilename = Date.now().toString()
+  const filename = url.split('/').pop() || dummyFilename
+  const filePath = `${dir}/${filename}`;
+
+  await fs.promises.writeFile(filePath, resp.data)
+  return filePath
+}

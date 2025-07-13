@@ -1,3 +1,6 @@
+import { downloadFile } from "@/lib/email-utils"
+import { ParsedMail } from "mailparser"
+
 export interface EmailConfig {
   host: string
   port: number
@@ -76,22 +79,34 @@ export type EmailProvider = 'wechat' | 'alipay'
 
 export interface EmailProviderConfig {
   name: string
-  fromPattern: RegExp
-  subjectPattern: RegExp
-  attachmentPattern: RegExp
+  fromPattern: RegExp,
+  downloadAttachment: ( emailInfo: EmailInfo, emailContent: string ) => Promise<string>
 }
 
 export const EMAIL_PROVIDERS: Record<EmailProvider, EmailProviderConfig> = {
   wechat: {
     name: '微信支付',
     fromPattern: /wechatpay/i,
-    subjectPattern: /(微信支付|wechat.*pay|账单|bill)/i,
-    attachmentPattern: /\.(zip|csv)$/i
+    downloadAttachment: async (emailInfo: EmailInfo, emailContent: string) => {
+      // extract the url from the html a tag
+      const urlMatch = emailContent.match(/<a href="([^"]+)".+?>[\W]+点击下载"/);
+      if (urlMatch && urlMatch[1]) {
+        const downloadUrl = urlMatch[1];
+        console.log(`下载链接: ${downloadUrl}`);
+        
+        // download the file using axios
+        const file = await downloadFile(downloadUrl, "tmp")
+        return file;
+      } else {
+        throw new Error("未找到下载链接");
+      }
+    }
   },
   alipay: {
     name: '支付宝',
     fromPattern: /alipay|zhifubao/i,
-    subjectPattern: /(支付宝|alipay|账单|bill)/i,
-    attachmentPattern: /\.(zip|csv)$/i
+    downloadAttachment: async (emailInfo: EmailInfo, emailContent: string) => {
+      return ""
+    }
   }
 } 
