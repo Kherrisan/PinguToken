@@ -1,17 +1,14 @@
 import Imap from 'imap'
-import { ParsedMail, simpleParser } from 'mailparser'
-import JSZip from 'jszip'
-import { parse } from 'csv-parse'
-import { decode } from 'iconv-lite'
+import { simpleParser } from 'mailparser'
+import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js'
 import {
   EmailInfo,
-  AttachmentInfo,
   BillEmail,
   EmailProvider,
   EMAIL_PROVIDERS,
-  CSVParseResult,
   EmailSearchOptions
 } from '@/types/email'
+import * as XLSX from 'xlsx';
 import { Stream } from 'stream'
 import axios from 'axios'
 import fs from 'fs'
@@ -29,7 +26,7 @@ export async function parseEmailHeader(imap: Imap, uid: string): Promise<EmailIn
             return
           }
 
-          console.log('Parsed email:', parsed)
+          // console.log('Parsed email:', parsed)
 
           const emailInfo: EmailInfo = {
             uid,
@@ -46,7 +43,7 @@ export async function parseEmailHeader(imap: Imap, uid: string): Promise<EmailIn
             }))
           }
 
-          console.log('Parsed email header:', emailInfo)
+          // console.log('Parsed email header:', emailInfo)
 
           resolve(emailInfo)
         })
@@ -94,9 +91,9 @@ export async function getEmailContent(imap: Imap, uid: string): Promise<string> 
             reject(err)
             return
           }
-          console.log('Parsed email:', parsed || '')
+          // console.log('Parsed email:', parsed || '')
 
-          resolve(parsed.text || '')
+          resolve(parsed.html || '')
         })
       })
     })
@@ -105,100 +102,69 @@ export async function getEmailContent(imap: Imap, uid: string): Promise<string> 
   })
 }
 
-export async function extractZipFile(zipFilePath: string, password?: string): Promise<{ filename: string; content: Buffer }[]> {
-  const zip = new JSZip()
+export function xlsxToCsv(xlsxPath: string, csvPath: string, sheetName?: string): void {
+  // 读取XLSX文件
+  const workbook = XLSX.readFile(xlsxPath);
 
-  const fileContent = await fs.promises.readFile(zipFilePath)
+  // 获取工作表名称（如果未指定，使用第一个）
+  const wsName = sheetName || workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[wsName];
 
+  // 转换为CSV
+  const csvData = XLSX.utils.sheet_to_csv(worksheet);
+
+  // 写入CSV文件
+  fs.writeFileSync(csvPath, csvData, 'utf8');
+}
+
+export function xlsxBufferToCsv(buffer: Buffer, sheetName?: string): string {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const wsName = sheetName || workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[wsName];
+
+  return XLSX.utils.sheet_to_csv(worksheet);
+}
+
+export async function extractZipFile(zipFilePath: string, password?: string): Promise<string | null> {
   try {
-    const loaded = await zip.loadAsync(fileContent, { password: password })
+    const fileContent = await fs.promises.readFile(zipFilePath)
+    const zipReader = new ZipReader(new BlobReader(new Blob([fileContent])), { password })
+    const entries = await zipReader.getEntries()
 
     const files: { filename: string; content: Buffer }[] = []
 
-    for (const filename in loaded.files) {
-      const file = loaded.files[filename]
-      if (!file.dir) {
-        try {
-          const content = await file.async('nodebuffer')
-          files.push({ filename, content })
-        } catch (error) {
-          // 如果提供了密码，说明可能是加密的zip文件
-          if (password) {
-            throw new Error(`需要密码解压文件: ${filename}`)
-          }
-          throw error
-        }
+    for (const entry of entries) {
+      const filename = entry.filename
+      if (!filename.endsWith('.xlsx') && !filename.endsWith('.xls') && !filename.endsWith('.csv')) {
+        continue
+      }
+
+      console.log(`entry file: ${entry.filename}`)
+
+      let bufWritter = new BlobWriter()
+      const data = await entry.getData?.(bufWritter)
+      if (data) {
+        const dataBuffer = await data.bytes()
+        console.log(`dataBuffer: ${dataBuffer.length} bytes`)
+        const csv = xlsxBufferToCsv(Buffer.from(dataBuffer))
+        console.log(`csv: ${csv.length} bytes`)
+
+        const csvFilePath = zipFilePath.replace('.zip', '.csv')
+        fs.writeFileSync(csvFilePath, csv, 'utf8')
+        return csvFilePath
+      } else {
+        console.log(`entry file: ${entry.filename} data is null`)
+        return null
       }
     }
-
-    return files
   } catch (error) {
     if (password) {
       throw new Error('解压缩失败，请检查密码是否正确')
     }
     throw error
   }
-}
 
-export async function parseCSV(csvBuffer: Buffer, filename: string): Promise<CSVParseResult> {
-  return new Promise((resolve, reject) => {
-    let csvContent: string
-
-    // 检测文件编码并转换
-    if (filename.toLowerCase().includes('alipay') || filename.toLowerCase().includes('zhifubao')) {
-      // 支付宝账单通常使用 GBK 编码
-      csvContent = decode(csvBuffer, 'gbk')
-    } else if (filename.toLowerCase().includes('wechat') || filename.toLowerCase().includes('weixin')) {
-      // 微信账单通常使用 UTF-8 编码
-      csvContent = decode(csvBuffer, 'utf8')
-    } else {
-      // 默认尝试 UTF-8，如果失败则尝试 GBK
-      try {
-        csvContent = decode(csvBuffer, 'utf8')
-      } catch {
-        csvContent = decode(csvBuffer, 'gbk')
-      }
-    }
-
-    const data: any[] = []
-    let headers: string[] = []
-
-    const parser = parse({
-      columns: false,
-      skip_empty_lines: true,
-      trim: true,
-    })
-
-    parser.on('readable', function () {
-      let record
-      while (record = parser.read()) {
-        if (data.length === 0) {
-          // 第一行作为标题
-          headers = record
-        } else {
-          // 将数据转换为对象
-          const rowData: any = {}
-          headers.forEach((header, index) => {
-            rowData[header] = record[index] || ''
-          })
-          data.push(rowData)
-        }
-      }
-    })
-
-    parser.on('error', reject)
-
-    parser.on('end', () => {
-      resolve({
-        headers,
-        data,
-        rowCount: data.length
-      })
-    })
-
-    parser.write(csvContent)
-    parser.end()
-  })
+  return null
 }
 
 export function identifyBillEmailProvider(email: EmailInfo): EmailProvider | null {
@@ -281,27 +247,10 @@ export async function searchBillEmails(imap: Imap, options: EmailSearchOptions =
   })
 }
 
-export function validateCSVData(data: any[], provider: EmailProvider): boolean {
-  if (!data || data.length === 0) return false
-
-  const firstRow = data[0]
-
-  if (provider === 'alipay') {
-    // 支付宝账单应该包含这些字段
-    const requiredFields = ['商户订单号', '交易号', '交易时间', '付款方式', '交易金额', '交易状态']
-    return requiredFields.some(field => field in firstRow)
-  } else if (provider === 'wechat') {
-    // 微信账单应该包含这些字段
-    const requiredFields = ['交易时间', '交易类型', '交易对方', '商品', '收/支', '金额', '支付方式', '交易状态']
-    return requiredFields.some(field => field in firstRow)
-  }
-
-  return true
-}
-
 export async function downloadZipFile(imap: any, uid: string, provider: EmailProvider): Promise<string> {
   const emailInfo = await parseEmailHeader(imap, uid)
   const emailContent = await getEmailContent(imap, uid)
+  // console.log(`emailInfo: ${emailInfo}, emailContent: ${emailContent}`)
   let file = await EMAIL_PROVIDERS[provider].downloadAttachment(emailInfo, emailContent)
 
   if (!file.endsWith('.zip')) {
@@ -312,15 +261,17 @@ export async function downloadZipFile(imap: any, uid: string, provider: EmailPro
   return file
 }
 
-export async function downloadFile(url: string, dir: string): Promise<string> {
+export async function downloadFile(url: string, dir: string, filename: string): Promise<string> {
   const resp = await axios.get(url, {
-    responseType: 'blob',
+    responseType: 'arraybuffer',
   });
 
-  const dummyFilename = Date.now().toString()
-  const filename = url.split('/').pop() || dummyFilename
+  console.log(`download file bytes: ${resp.data.length}`)
   const filePath = `${dir}/${filename}`;
 
-  await fs.promises.writeFile(filePath, resp.data)
+  const buf = new Uint8Array(resp.data)
+  await fs.promises.writeFile(filePath, buf)
+
+  console.log(`downloadFile: ${filePath}`)
   return filePath
 }

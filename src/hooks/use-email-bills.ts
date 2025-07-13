@@ -60,14 +60,14 @@ export function useEmailBills() {
   }
 
   // 下载并解析账单
-  const downloadBillData = async (uid: string, zipPassword?: string) => {
+  const downloadBillData = async (uid: string, zipPassword?: string, provider?: string) => {
     try {
       const response = await fetch('/api/email/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ uid, zipPassword })
+        body: JSON.stringify({ uid, zipPassword, provider })
       })
 
       const result: EmailDownloadResponse = await response.json()

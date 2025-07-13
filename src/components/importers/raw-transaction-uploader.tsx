@@ -7,21 +7,17 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle2, Upload } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
-import { UnmatchedTransactions } from "./unmatched-transactions"
-import { MatchResult } from '@/lib/importers/matcher';
+import { ImportResult } from './transaction-import-manager'
 
 interface RawTransactionFileUploaderProps {
     source: string
+    onImportResult: (result: Omit<ImportResult, 'id' | 'processedAt'>) => void
 }
 
-export function RawTransactionFileUploader({ source }: RawTransactionFileUploaderProps) {
+export function RawTransactionFileUploader({ source, onImportResult }: RawTransactionFileUploaderProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [matchResults, setMatchResults] = useState<{
-        matched: number;
-        unmatched: MatchResult[];
-    } | null>(null);
 
     const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -30,7 +26,6 @@ export function RawTransactionFileUploader({ source }: RawTransactionFileUploade
         setIsUploading(true);
         setProgress(0);
         setMessage(null);
-        setMatchResults(null);
 
         try {
             const formData = new FormData();
@@ -61,10 +56,18 @@ export function RawTransactionFileUploader({ source }: RawTransactionFileUploade
                 throw new Error(result.error || '导入失败');
             }
 
-            setMatchResults(result);
+            // 通知父组件添加导入结果
+            onImportResult({
+                source: 'upload',
+                provider: source as string,
+                filename: file.name,
+                matched: result.matched || 0,
+                unmatched: result.unmatched || []
+            });
+
             setMessage({
                 type: 'success',
-                text: `成功匹配 ${result.matched?.length || 0} 条交易，${result.unmatched.length} 条待处理`
+                text: `成功匹配 ${result.matched || 0} 条交易，${result.unmatched?.length || 0} 条待处理`
             });
         } catch (error) {
             setMessage({
@@ -124,14 +127,6 @@ export function RawTransactionFileUploader({ source }: RawTransactionFileUploade
                 </Alert>
             )}
 
-            { matchResults?.unmatched && matchResults.unmatched.length > 0 && (
-                <UnmatchedTransactions
-                    transactions={matchResults.unmatched}
-                    onRuleCreated={(ruleId) => {
-                        // 重新匹配交易
-                    }}
-                />
-            )}
         </div>
     );
 } 

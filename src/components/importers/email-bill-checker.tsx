@@ -20,8 +20,13 @@ import { useEmailBills } from '@/hooks/use-email-bills'
 import { useToast } from '@/hooks/use-toast'
 import { BillEmail } from '@/types/email'
 import { formatDate } from '@/lib/utils'
+import { ImportResult } from './transaction-import-manager'
 
-export function EmailBillChecker() {
+interface EmailBillCheckerProps {
+  onImportResult: (result: Omit<ImportResult, 'id' | 'processedAt'>) => void
+}
+
+export function EmailBillChecker({ onImportResult }: EmailBillCheckerProps) {
   const { billEmails, isLoading, error, lastChecked, refetch, downloadBillData } = useEmailBills()
   const { toast } = useToast()
   const [downloadingUid, setDownloadingUid] = useState<string | null>(null)
@@ -32,21 +37,45 @@ export function EmailBillChecker() {
     setDownloadingUid(email.uid)
     
     try {
-      const data = await downloadBillData(email.uid, zipPassword)
+      // 直接调用API而不是通过hook
+      const response = await fetch('/api/email/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: email.uid,
+          zipPassword,
+          provider: email.provider
+        })
+      })
       
-      if (data?.csvData) {
-        toast({
-          title: "下载成功",
-          description: `成功解析 ${data.csvData.length} 条账单记录`,
+      // 处理响应数据，类似raw-transaction-uploader的方式
+      if (response.ok) {
+        const result = await response.json()
+        
+        // 通知父组件添加导入结果
+        onImportResult({
+          source: 'email',
+          provider: email.provider,
+          emailSubject: email.subject,
+          matched: result.matched || 0,
+          unmatched: result.unmatched || []
         })
         
-        // 这里可以添加处理CSV数据的逻辑，比如导入到系统中
-        console.log('CSV数据:', data.csvData)
+        toast({
+          title: "导入成功",
+          description: `成功匹配 ${result.matched || 0} 条交易`,
+        })
+      } else {
+        const errorResult = await response.json()
+        throw new Error(errorResult.error || '导入失败')
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '下载失败'
       toast({
         title: "下载失败",
-        description: error instanceof Error ? error.message : '下载失败',
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {

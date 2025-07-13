@@ -89,13 +89,14 @@ export const EMAIL_PROVIDERS: Record<EmailProvider, EmailProviderConfig> = {
     fromPattern: /wechatpay/i,
     downloadAttachment: async (emailInfo: EmailInfo, emailContent: string) => {
       // extract the url from the html a tag
-      const urlMatch = emailContent.match(/<a href="([^"]+)".+?>[\W]+点击下载"/);
+      const urlMatch = emailContent.match(/<a href="([^"]+)"[\s\S]+?>[\s\S]+?点击下载/);
+      // console.log(`urlMatch: ${urlMatch}`)
       if (urlMatch && urlMatch[1]) {
         const downloadUrl = urlMatch[1];
         console.log(`下载链接: ${downloadUrl}`);
         
         // download the file using axios
-        const file = await downloadFile(downloadUrl, "tmp")
+        const file = await downloadFile(downloadUrl, "tmp", emailInfo.subject + ".zip")
         return file;
       } else {
         throw new Error("未找到下载链接");

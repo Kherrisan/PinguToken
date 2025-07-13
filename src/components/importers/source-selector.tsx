@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { RawTransactionFileUploader } from "./raw-transaction-uploader"
 import { Separator } from "@/components/ui/separator"
+import { ImportResult } from './transaction-import-manager'
 
 const sources = [
     {
@@ -24,7 +25,11 @@ const sources = [
     }
 ] as const
 
-export function ImportSourceSelector() {
+interface ImportSourceSelectorProps {
+    onImportResult: (result: Omit<ImportResult, 'id' | 'processedAt'>) => void
+}
+
+export function ImportSourceSelector({ onImportResult }: ImportSourceSelectorProps) {
     const [selectedSource, setSelectedSource] = useState<string>("alipay")
 
     return (
@@ -55,7 +60,7 @@ export function ImportSourceSelector() {
             </RadioGroup>
             <Separator />
             <div className="pt-4">
-                <RawTransactionFileUploader source={selectedSource} />
+                <RawTransactionFileUploader source={selectedSource} onImportResult={onImportResult} />
             </div>
         </div>
     )
