@@ -1,0 +1,28 @@
+# 邮件配置环境变量示例
+# 将此文件重命名为 .env.local 或将这些变量添加到您的环境变量中
+
+# 邮件配置
+EMAIL_HOST=imap.qq.com
+EMAIL_PORT=993
+EMAIL_SECURE=true
+EMAIL_USERNAME=your-email@qq.com
+EMAIL_PASSWORD=your-app-password
+
+# 示例配置说明：
+# EMAIL_HOST: 邮件服务器地址
+#   - QQ邮箱: imap.qq.com
+#   - Gmail: imap.gmail.com
+#   - 163邮箱: imap.163.com
+#   - 126邮箱: imap.126.com
+#   - Outlook: imap-mail.outlook.com
+#
+# EMAIL_PORT: 邮件服务器端口 (通常为993)
+# EMAIL_SECURE: 是否使用SSL/TLS (true/false)
+# EMAIL_USERNAME: 邮箱用户名（完整邮箱地址）
+# EMAIL_PASSWORD: 邮箱密码或应用专用密码
+
+# 如何获取应用密码：
+# QQ邮箱: 设置 -> 账户 -> 开启IMAP -> 生成授权码
+# Gmail: 安全 -> 应用密码 -> 生成密码
+# 163/126: 设置 -> 客户端授权密码 -> 开启并设置密码
+# Outlook: 账户安全 -> 应用密码 -> 创建密码 

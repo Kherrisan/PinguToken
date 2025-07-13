@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImportSourceSelector } from "@/components/importers/source-selector"
+import { EmailBillChecker } from "@/components/importers/email-bill-checker"
 import { Suspense } from "react"
 
 export default function ImporterPage() {
@@ -11,6 +12,9 @@ export default function ImporterPage() {
                     <h1 className="text-2xl font-semibold">数据导入</h1>
                     <p className="text-sm text-muted-foreground">从不同来源导入交易数据</p>
                 </div>
+
+                {/* 邮件账单检查 */}
+                <EmailBillChecker />
 
                 <Card>
                     <CardHeader>
