@@ -13,7 +13,7 @@ import { formatDate } from '@/lib/utils'
 export interface ImportResult {
   id: string
   source: string // 'email' | 'upload'
-  provider?: string // 'wechat' | 'alipay'
+  provider?: string // 'wechatpay' | 'alipay'
   filename?: string
   emailSubject?: string
   matched: number
@@ -53,13 +53,13 @@ export function TransactionImportManager({ children }: TransactionImportManagerP
 
   const getSourceName = (source: string, provider?: string) => {
     if (source === 'email') {
-      return provider === 'wechat' ? '邮件-微信支付' : provider === 'alipay' ? '邮件-支付宝' : '邮件'
+      return provider === 'wechatpay' ? '邮件-微信支付' : provider === 'alipay' ? '邮件-支付宝' : '邮件'
     }
-    return provider === 'wechat' ? '文件-微信支付' : provider === 'alipay' ? '文件-支付宝' : '文件上传'
+    return provider === 'wechatpay' ? '文件-微信支付' : provider === 'alipay' ? '文件-支付宝' : '文件上传'
   }
 
   const getSourceColor = (source: string, provider?: string) => {
-    if (provider === 'wechat') return 'bg-green-100 text-green-800'
+    if (provider === 'wechatpay') return 'bg-green-100 text-green-800'
     if (provider === 'alipay') return 'bg-blue-100 text-blue-800'
     return source === 'email' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
   }

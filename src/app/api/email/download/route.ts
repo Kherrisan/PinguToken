@@ -6,6 +6,7 @@ import {
 } from '@/lib/email-utils'
 import { EmailDownloadResponse, EmailProvider } from '@/types/email'
 import { getEmailConfigFromEnv, getMissingEnvVars } from '@/lib/email-env'
+import { processCsvBuffer, Provider } from '@/lib/importers/processor'
 import fs from 'fs'
 
 export async function POST(request: Request) {
@@ -59,32 +60,25 @@ export async function POST(request: Request) {
           throw new Error('提取CSV文件失败')
         }
 
-        // 创建FormData发送到微信支付API
-        const formData = new FormData()
-        const file = await fs.promises.readFile(csvFile)
-        const blob = new Blob([file], { type: 'text/csv' })
-        formData.append('file', blob, csvFile)
+        console.log('csvFile', csvFile);
 
-        let api = ""
-        if (provider === 'wechat') {
-          api = `${process.env.NEXT_PUBLIC_BASE_URL}/api/import/wechatpay`
-        } else if (provider === 'alipay') {
-          api = `${process.env.NEXT_PUBLIC_BASE_URL}/api/import/alipay`
+        // 读取CSV文件并使用通用处理函数
+        const fileBuffer = await fs.promises.readFile(csvFile)
+        
+        // 验证provider类型
+        if (provider !== 'wechatpay' && provider !== 'alipay') {
+          throw new Error(`不支持的提供商: ${provider}`)
         }
 
-                 // 内部API调用
-         const importResponse = await fetch(api, {
-           method: 'POST',
-           body: formData
-         })
+        // 直接使用统一的provider名称
+        const result = await processCsvBuffer({
+          provider: provider as Provider,
+          buffer: fileBuffer,
+          filename: csvFile,
+          tempPathPrefix: 'tmp/email'
+        })
 
-         if (!importResponse.ok) {
-           throw new Error('导入CSV文件失败')
-         }
-
-         const importResult = await importResponse.json()
-         
-         return NextResponse.json(importResult)
+        return NextResponse.json(result)
       } catch (error) {
         return NextResponse.json<EmailDownloadResponse>(
           {

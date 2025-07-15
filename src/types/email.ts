@@ -23,7 +23,6 @@ export interface AttachmentInfo {
   size: number
   contentType: string
   cid?: string
-  encoding?: string
   disposition?: string
 }
 
@@ -32,35 +31,14 @@ export interface BillEmail {
   subject: string
   from: string
   date: Date
-  provider: 'wechat' | 'alipay'
+  provider: 'wechatpay' | 'alipay'
   attachments: AttachmentInfo[]
 }
 
 export interface EmailSearchOptions {
   since?: Date
   before?: Date
-  subject?: string
-  from?: string
   hasAttachments?: boolean
-}
-
-export interface EmailSearchRequest {
-  // 搜索范围固定为今日，无需参数
-}
-
-export interface EmailDownloadRequest {
-  uid: string
-  zipPassword?: string
-}
-
-export interface EmailDownloadResponse {
-  success: boolean
-  message: string
-  data?: {
-    filename: string
-    csvData?: any[]
-    extractedFiles?: string[]
-  }
 }
 
 export interface EmailSearchResponse {
@@ -69,13 +47,23 @@ export interface EmailSearchResponse {
   data?: BillEmail[]
 }
 
-export interface CSVParseResult {
-  headers: string[]
-  data: any[]
-  rowCount: number
+export interface EmailDownloadResponse {
+  success: boolean
+  message: string
+  data?: any
 }
 
-export type EmailProvider = 'wechat' | 'alipay'
+export interface EmailContentInfo {
+  uid: string
+  subject: string
+  from: string
+  date: Date
+  content: string
+  hasAttachments: boolean
+  attachments: AttachmentInfo[]
+}
+
+export type EmailProvider = 'wechatpay' | 'alipay'
 
 export interface EmailProviderConfig {
   name: string
@@ -84,7 +72,7 @@ export interface EmailProviderConfig {
 }
 
 export const EMAIL_PROVIDERS: Record<EmailProvider, EmailProviderConfig> = {
-  wechat: {
+  wechatpay: {
     name: '微信支付',
     fromPattern: /wechatpay/i,
     downloadAttachment: async (emailInfo: EmailInfo, emailContent: string) => {

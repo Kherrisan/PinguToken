@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImportSourceSelector } from "@/components/importers/source-selector"
 import { EmailBillChecker } from "@/components/importers/email-bill-checker"

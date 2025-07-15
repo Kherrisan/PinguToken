@@ -86,7 +86,7 @@ export function EmailBillChecker({ onImportResult }: EmailBillCheckerProps) {
   // 获取提供商的中文名称
   const getProviderName = (provider: string) => {
     switch (provider) {
-      case 'wechat':
+      case 'wechatpay':
         return '微信支付'
       case 'alipay':
         return '支付宝'
@@ -98,7 +98,7 @@ export function EmailBillChecker({ onImportResult }: EmailBillCheckerProps) {
   // 获取提供商的颜色
   const getProviderColor = (provider: string) => {
     switch (provider) {
-      case 'wechat':
+      case 'wechatpay':
         return 'bg-green-100 text-green-800'
       case 'alipay':
         return 'bg-blue-100 text-blue-800'
@@ -132,117 +132,90 @@ export function EmailBillChecker({ onImportResult }: EmailBillCheckerProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            <span>正在检查邮箱...</span>
-          </div>
-        )}
+        {/* 密码输入 */}
+        <div className="mb-4">
+          <Label htmlFor="zip-password">压缩包密码（如有）</Label>
+          <Input
+            id="zip-password"
+            type="password"
+            placeholder="请输入压缩包密码"
+            value={zipPassword}
+            onChange={(e) => setZipPassword(e.target.value)}
+          />
+        </div>
 
-        {error && (
-          <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-md">
-            <AlertCircle className="w-5 h-5 text-red-500" />
-            <span className="text-red-700">{error}</span>
-          </div>
-        )}
-
-        {!isLoading && !error && (
-          <div className="space-y-4">
-            {/* 状态信息 */}
-            <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-md">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-gray-600">
-                  找到 {billEmails.length} 封今日账单邮件
-                </span>
-              </div>
-              {lastChecked && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Calendar className="w-4 h-4" />
-                  最后检查: {formatDate(lastChecked)}
-                </div>
-              )}
+        {/* 检查状态 */}
+        <div className="mb-4">
+          {isLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              正在检查邮件...
             </div>
+          )}
+          
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600">
+              <AlertCircle className="w-4 h-4" />
+              {error}
+            </div>
+          )}
+          
+          {lastChecked && !isLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="w-4 h-4" />
+              上次检查: {formatDate(lastChecked)}
+            </div>
+          )}
+        </div>
 
-            {/* 邮件列表 */}
-            {billEmails.length === 0 ? (
-              <div className="text-center py-8">
-                <Mail className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-500 mb-2">今日暂无账单邮件</p>
-                <p className="text-sm text-gray-400">
-                  系统会自动检查微信支付和支付宝的账单邮件
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {billEmails.map((email) => (
-                  <div key={email.uid} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge className={getProviderColor(email.provider)}>
-                            {getProviderName(email.provider)}
-                          </Badge>
-                          <span className="text-sm text-gray-500">
-                            {formatDate(email.date)}
-                          </span>
-                        </div>
-                        <h4 className="font-medium">{email.subject}</h4>
-                        <p className="text-sm text-gray-600">{email.from}</p>
-                        
-                        {/* 附件信息 */}
-                        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-                          <FileText className="w-4 h-4" />
-                          <span>{email.attachments.length} 个附件</span>
-                          {email.attachments.map((att, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {att.filename}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleDownload(email)}
-                          disabled={downloadingUid === email.uid}
-                        >
-                          {downloadingUid === email.uid ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              处理中
-                            </>
-                          ) : (
-                            <>
-                              <Download className="w-4 h-4 mr-2" />
-                              下载解析
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* 密码输入 */}
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`password-${email.uid}`} className="text-sm">
-                        解压密码:
-                      </Label>
-                      <Input
-                        id={`password-${email.uid}`}
-                        type="password"
-                        placeholder="如果是加密压缩包，请输入密码"
-                        value={zipPassword}
-                        onChange={(e) => setZipPassword(e.target.value)}
-                        className="flex-1"
-                      />
-                    </div>
+        {/* 邮件列表 */}
+        <div className="space-y-3">
+          {billEmails.length === 0 && !isLoading && (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>未找到今日账单邮件</p>
+            </div>
+          )}
+
+          {billEmails.map((email) => (
+            <div
+              key={email.uid}
+              className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className={getProviderColor(email.provider)}>
+                      {getProviderName(email.provider)}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(email.date)}
+                    </span>
                   </div>
-                ))}
+                  <p className="font-medium">{email.subject}</p>
+                  <p className="text-sm text-muted-foreground">{email.from}</p>
+                </div>
+                <Button
+                  onClick={() => handleDownload(email)}
+                  disabled={downloadingUid === email.uid}
+                  size="sm"
+                >
+                  {downloadingUid === email.uid ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      处理中
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      导入
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   )
