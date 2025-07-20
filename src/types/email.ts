@@ -1,5 +1,5 @@
 import { downloadFile } from "@/lib/email-utils"
-import { ParsedMail } from "mailparser"
+import fs from "fs"
 
 export interface EmailConfig {
   host: string
@@ -24,6 +24,7 @@ export interface AttachmentInfo {
   contentType: string
   cid?: string
   disposition?: string
+  content?: Buffer
 }
 
 export interface BillEmail {
@@ -67,7 +68,8 @@ export type EmailProvider = 'wechatpay' | 'alipay'
 
 export interface EmailProviderConfig {
   name: string
-  fromPattern: RegExp,
+  fromPattern?: RegExp,
+  subjectPattern?: RegExp,
   downloadAttachment: ( emailInfo: EmailInfo, emailContent: string ) => Promise<string>
 }
 
@@ -93,9 +95,15 @@ export const EMAIL_PROVIDERS: Record<EmailProvider, EmailProviderConfig> = {
   },
   alipay: {
     name: '支付宝',
-    fromPattern: /alipay|zhifubao/i,
+    subjectPattern: /支付宝交易流水明细/i,
     downloadAttachment: async (emailInfo: EmailInfo, emailContent: string) => {
-      return ""
+      const attachment = emailInfo.attachments.find(att => att.contentType.includes('application/zip'))
+      if (attachment && attachment.content) {
+        const file = `tmp/${attachment.filename}`
+        await fs.promises.writeFile(file, attachment.content)
+        return file
+      }
+      throw new Error("未找 zip 附件");
     }
   }
 } 

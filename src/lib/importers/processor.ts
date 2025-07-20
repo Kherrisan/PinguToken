@@ -3,6 +3,7 @@ import iconv from 'iconv-lite';
 import { parseAlipayCSV, processRawRecord, createTransaction } from './alipay';
 import { parseWeChatCSV } from './wechatpay';
 import { matchTransactions, MatchResult } from './matcher';
+import { prisma } from '@/lib/prisma';
 
 export interface ProcessorResult {
     matched: number;
@@ -13,8 +14,7 @@ export type Provider = 'alipay' | 'wechatpay';
 
 interface ProcessorConfig {
     provider: Provider;
-    file: File;
-    tempPathPrefix?: string;
+    csvFilePath: string;
 }
 
 /**
@@ -23,49 +23,29 @@ interface ProcessorConfig {
  */
 export async function processCsvFile({
     provider,
-    file,
-    tempPathPrefix = 'tmp'
+    csvFilePath,
 }: ProcessorConfig): Promise<ProcessorResult> {
-    const tempPath = `${tempPathPrefix}/${provider}.csv`;
-    
-    try {
-        // 保存文件并处理编码
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        
-        if (provider === 'alipay') {
-            // 支付宝文件使用GBK编码，需要转换为UTF-8
-            const decodedContent = iconv.decode(buffer, 'gbk');
-            const utf8Buffer = Buffer.from(decodedContent, 'utf8');
-            await writeFile(tempPath, utf8Buffer);
-        } else {
-            // 微信支付文件直接使用UTF-8编码
-            await writeFile(tempPath, buffer);
-        }
+    // 解析CSV文件
+    const records = await parseCsvByProvider(csvFilePath, provider);
+    console.log(`records: ${records.length}`)
 
-        console.log('tempPath', tempPath);
+    // 匹配交易记录
+    const matchResults = await matchTransactions(records, provider);
+    const matched = matchResults.filter(r => r.targetAccount && r.methodAccount);
+    const unmatched = matchResults.filter(r => !r.targetAccount || !r.methodAccount);
+    console.log(`matched: ${matched.length}`)
+    console.log(`unmatched: ${unmatched.length}`)
 
-        // 解析CSV文件
-        const records = await parseCsvByProvider(tempPath, provider);
-        
-        // 匹配交易记录
-        const { matched, unmatched } = await matchTransactions(records, provider);
+    // 处理匹配的记录
+    await processMatchedRecords(matched, provider);
 
-        // 处理匹配的记录
-        await processMatchedRecords(matched);
+    // 处理未匹配的记录，插入到rawtransaction表中
+    await processUnmatchedRecords(unmatched, provider);
 
-        return {
-            matched: matched.length,
-            unmatched: unmatched
-        };
-    } finally {
-        // 清理临时文件
-        try {
-            await unlink(tempPath);
-        } catch (error) {
-            console.warn(`Failed to clean up temp file ${tempPath}:`, error);
-        }
-    }
+    return {
+        matched: matched.length,
+        unmatched: unmatched
+    };
 }
 
 /**
@@ -85,11 +65,15 @@ async function parseCsvByProvider(filePath: string, provider: Provider) {
 /**
  * 处理匹配的交易记录
  */
-async function processMatchedRecords(matched: any[]) {
+async function processMatchedRecords(matched: any[], provider: Provider) {
     for (const match of matched) {
         const { record, targetAccount, methodAccount } = match;
-        const processedRecord = await processRawRecord(record);
-        
+        console.log(`processing record: ${record}`)
+        console.log(`targetAccount: ${targetAccount}`)
+        console.log(`methodAccount: ${methodAccount}`)
+
+        const processedRecord = await processRawRecord(record, provider);
+
         if (processedRecord) {
             const { rawTransaction, amount, date } = processedRecord;
             // 创建结构化交易记录
@@ -101,6 +85,39 @@ async function processMatchedRecords(matched: any[]) {
                 amount,
                 date
             });
+        }
+    }
+}
+
+/**
+ * 处理未匹配的记录，插入到rawtransaction表中
+ */
+async function processUnmatchedRecords(unmatches: MatchResult[], provider: Provider) {
+    for (const unmatch of unmatches) {
+        const { record } = unmatch;
+        console.log(`processing unmatched record: ${record.transactionNo}`)
+
+        // 检查是否已存在
+        const existingRawTx = await prisma.rawTransaction.findUnique({
+            where: {
+                source_identifier: {
+                    source: provider,
+                    identifier: record.transactionNo.trim()
+                }
+            }
+        });
+
+        if (!existingRawTx) {
+            // 创建未匹配的原始交易记录
+            const rawTransaction = await prisma.rawTransaction.create({
+                data: {
+                    source: provider,
+                    identifier: record.transactionNo.trim(),
+                    rawData: record as any,
+                    createdAt: new Date(record.transactionTime)
+                }
+            });
+            unmatch.record.rawTxId = rawTransaction.id;
         }
     }
 }
@@ -119,12 +136,22 @@ export async function processCsvBuffer({
     filename: string;
     tempPathPrefix?: string;
 }): Promise<ProcessorResult> {
-    // 创建一个模拟的File对象
-    const file = new File([buffer], filename, { type: 'text/csv' });
-    
-    return await processCsvFile({
-        provider,
-        file,
-        tempPathPrefix
-    });
+    // 创建临时文件
+    const tempFilePath = `${tempPathPrefix}/${filename}`;
+    await writeFile(tempFilePath, buffer);
+
+    try {
+        const result = await processCsvFile({
+            provider,
+            csvFilePath: tempFilePath
+        });
+        return result;
+    } finally {
+        // 清理临时文件
+        try {
+            await unlink(tempFilePath);
+        } catch (error) {
+            console.error('Failed to delete temp file:', error);
+        }
+    }
 } 

@@ -19,9 +19,10 @@ import { Separator } from "@/components/ui/separator"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { InfoIcon } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { MatchResult } from "@/lib/importers/matcher"
 
 interface CreateRuleDialogProps {
-    transaction: ImportRecord | null;
+    record: ImportRecord | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onRuleCreated: (ruleId: string, matched: boolean) => void;
@@ -49,7 +50,6 @@ interface RuleFormData {
         min?: string;
         max?: string;
     };
-    status: MatchCondition;
     method: MatchCondition;
 }
 
@@ -152,10 +152,10 @@ function MatchFieldLabel({ field, children }: { field: string; children: React.R
 }
 
 export function CreateRuleDialog({
-    transaction,
+    record,
     open,
     onOpenChange,
-    onRuleCreated
+    onRuleCreated,
 }: CreateRuleDialogProps) {
     const [isSaving, setIsSaving] = useState(false);
     const [formData, setFormData] = useState<RuleFormData>({
@@ -169,10 +169,6 @@ export function CreateRuleDialog({
         desc: { enabled: false },
         time: { enabled: false },
         amount: { enabled: false },
-        status: {
-            enabled: false,
-            pattern: ''
-        },
         method: {
             enabled: false,
             pattern: ''
@@ -180,7 +176,7 @@ export function CreateRuleDialog({
     });
 
     useEffect(() => {
-        if (transaction) {
+        if (record) {
             setFormData({
                 name: '',
                 description: '',
@@ -192,23 +188,20 @@ export function CreateRuleDialog({
                 desc: { enabled: false },
                 time: { enabled: false },
                 amount: { enabled: false },
-                status: {
-                    enabled: false,
-                    pattern: transaction.status
-                },
                 method: {
                     enabled: false,
-                    pattern: transaction.paymentMethod
+                    pattern: record.paymentMethod
                 }
             });
         }
-    }, [transaction]);
+    }, [record]);
 
     const handleSubmit = async () => {
-        if (!transaction) return;
+        if (!record) return;
         setIsSaving(true);
 
         try {
+            console.log('formData', formData);
             // 创建规则
             const ruleResponse = await fetch('/api/import/rules', {
                 method: 'POST',
@@ -216,7 +209,7 @@ export function CreateRuleDialog({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    sourceId: 'alipay',
+                    sourceId: record.provider, // 使用传入的sourceId
                     name: formData.name,
                     description: formData.description,
                     targetAccount: formData.targetAccount,
@@ -228,7 +221,6 @@ export function CreateRuleDialog({
                     timePattern: formData.time.enabled ? `${formData.time.start}-${formData.time.end}` : undefined,
                     amountMin: formData.amount.enabled ? parseFloat(formData.amount.min || '0') : undefined,
                     amountMax: formData.amount.enabled ? parseFloat(formData.amount.max || '0') : undefined,
-                    statusPattern: formData.status.enabled ? formData.status.pattern : undefined,
                     methodPattern: formData.method.enabled ? formData.method.pattern : undefined,
                 }),
             });
@@ -246,8 +238,8 @@ export function CreateRuleDialog({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    source: 'alipay',
-                    transactions: [transaction]
+                    source: record.provider, // 使用传入的sourceId
+                    records: [record]
                 }),
             });
 
@@ -255,16 +247,17 @@ export function CreateRuleDialog({
                 throw new Error('Failed to match transaction');
             }
 
-            const [matchResult] = await tryMatchResponse.json();
-            
+            const [matchResult]: MatchResult[] = await tryMatchResponse.json();
+            const matched: boolean = !!matchResult.targetAccount && !!matchResult.methodAccount;
+
             // 通知父组件规则已创建，并传递匹配结果
-            onRuleCreated(rule.id, matchResult.matched);
+            onRuleCreated(rule.id, matched);
             onOpenChange(false);
 
             toast({
                 title: "规则创建成功",
-                description: matchResult.matched 
-                    ? "规则已创建并可以匹配当前交易" 
+                description: matched
+                    ? "规则已创建并可以匹配当前交易"
                     : "规则已创建，但未能匹配当前交易",
             });
         } catch (error) {
@@ -341,16 +334,19 @@ export function CreateRuleDialog({
                     {/* 匹配条件 */}
                     <div className="space-y-4">
                         <Label>匹配条件</Label>
-                        
+
                         {/* 交易类型 */}
                         <div className="grid gap-2">
                             <div className="flex items-center space-x-2">
                                 <Checkbox
                                     id="matchType"
                                     checked={formData.type.enabled}
-                                    onCheckedChange={(checked) => 
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            formData.type.pattern = record?.type;
+                                        }
                                         updateMatchCondition('type', { enabled: !!checked })
-                                    }
+                                    }}
                                 />
                                 <MatchFieldLabel field="type">
                                     <Label htmlFor="matchType">匹配交易类型</Label>
@@ -360,7 +356,7 @@ export function CreateRuleDialog({
                                 <Input
                                     value={formData.type.pattern}
                                     onChange={(e) => updateMatchCondition('type', { pattern: e.target.value })}
-                                    placeholder={transaction?.type}
+                                    placeholder={record?.type}
                                 />
                             )}
                         </div>
@@ -371,9 +367,12 @@ export function CreateRuleDialog({
                                 <Checkbox
                                     id="matchCategory"
                                     checked={formData.category.enabled}
-                                    onCheckedChange={(checked) => 
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            formData.category.pattern = record?.category;
+                                        }
                                         updateMatchCondition('category', { enabled: !!checked })
-                                    }
+                                    }}
                                 />
                                 <MatchFieldLabel field="category">
                                     <Label htmlFor="matchCategory">匹配交易分类</Label>
@@ -383,7 +382,7 @@ export function CreateRuleDialog({
                                 <Input
                                     value={formData.category.pattern}
                                     onChange={(e) => updateMatchCondition('category', { pattern: e.target.value })}
-                                    placeholder={transaction?.category}
+                                    placeholder={record?.category}
                                 />
                             )}
                         </div>
@@ -394,9 +393,12 @@ export function CreateRuleDialog({
                                 <Checkbox
                                     id="matchPeer"
                                     checked={formData.peer.enabled}
-                                    onCheckedChange={(checked) => 
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            formData.peer.pattern = record?.counterparty;
+                                        }
                                         updateMatchCondition('peer', { enabled: !!checked })
-                                    }
+                                    }}
                                 />
                                 <MatchFieldLabel field="peer">
                                     <Label htmlFor="matchPeer">匹配交易对手</Label>
@@ -406,7 +408,7 @@ export function CreateRuleDialog({
                                 <Input
                                     value={formData.peer.pattern}
                                     onChange={(e) => updateMatchCondition('peer', { pattern: e.target.value })}
-                                    placeholder={transaction?.counterparty}
+                                    placeholder={record?.counterparty}
                                 />
                             )}
                         </div>
@@ -417,9 +419,12 @@ export function CreateRuleDialog({
                                 <Checkbox
                                     id="matchDesc"
                                     checked={formData.desc.enabled}
-                                    onCheckedChange={(checked) => 
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            formData.desc.pattern = record?.description;
+                                        }
                                         updateMatchCondition('desc', { enabled: !!checked })
-                                    }
+                                    }}
                                 />
                                 <MatchFieldLabel field="description">
                                     <Label htmlFor="matchDesc">匹配交易描述</Label>
@@ -429,7 +434,7 @@ export function CreateRuleDialog({
                                 <Input
                                     value={formData.desc.pattern}
                                     onChange={(e) => updateMatchCondition('desc', { pattern: e.target.value })}
-                                    placeholder={transaction?.description}
+                                    placeholder={record?.description}
                                 />
                             )}
                         </div>
@@ -440,7 +445,7 @@ export function CreateRuleDialog({
                                 <Checkbox
                                     id="matchTime"
                                     checked={formData.time.enabled}
-                                    onCheckedChange={(checked) => 
+                                    onCheckedChange={(checked) =>
                                         updateMatchCondition('time', { enabled: !!checked })
                                     }
                                 />
@@ -457,7 +462,7 @@ export function CreateRuleDialog({
                                         <Input
                                             type="time"
                                             value={formData.time.start}
-                                            onChange={(e) => 
+                                            onChange={(e) =>
                                                 setFormData(prev => ({
                                                     ...prev,
                                                     time: {
@@ -476,7 +481,7 @@ export function CreateRuleDialog({
                                         <Input
                                             type="time"
                                             value={formData.time.end}
-                                            onChange={(e) => 
+                                            onChange={(e) =>
                                                 setFormData(prev => ({
                                                     ...prev,
                                                     time: {
@@ -498,9 +503,12 @@ export function CreateRuleDialog({
                                 <Checkbox
                                     id="matchAmount"
                                     checked={formData.amount.enabled}
-                                    onCheckedChange={(checked) => 
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            formData.amount.min = record?.amount;
+                                        }
                                         updateMatchCondition('amount', { enabled: !!checked })
-                                    }
+                                    }}
                                 />
                                 <MatchFieldLabel field="amount">
                                     <Label htmlFor="matchAmount">匹配金额范围</Label>
@@ -516,7 +524,7 @@ export function CreateRuleDialog({
                                             type="number"
                                             step="0.01"
                                             value={formData.amount.min}
-                                            onChange={(e) => 
+                                            onChange={(e) =>
                                                 setFormData(prev => ({
                                                     ...prev,
                                                     amount: {
@@ -536,7 +544,7 @@ export function CreateRuleDialog({
                                             type="number"
                                             step="0.01"
                                             value={formData.amount.max}
-                                            onChange={(e) => 
+                                            onChange={(e) =>
                                                 setFormData(prev => ({
                                                     ...prev,
                                                     amount: {
@@ -552,40 +560,18 @@ export function CreateRuleDialog({
                             )}
                         </div>
 
-                        {/* 交易状态 */}
-                        <div className="grid gap-2">
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="matchStatus"
-                                    checked={formData.status.enabled}
-                                    onCheckedChange={(checked) => 
-                                        updateMatchCondition('status', { enabled: !!checked })
-                                    }
-                                />
-                                <MatchFieldLabel field="status">
-                                    <Label htmlFor="matchStatus">匹配交易状态</Label>
-                                </MatchFieldLabel>
-                            </div>
-                            {formData.status.enabled && (
-                                <Input
-                                    value={formData.status.pattern}
-                                    onChange={(e) => 
-                                        updateMatchCondition('status', { pattern: e.target.value })
-                                    }
-                                    placeholder="输入状态匹配模式"
-                                />
-                            )}
-                        </div>
-
                         {/* 支付方式 */}
                         <div className="grid gap-2">
                             <div className="flex items-center space-x-2">
                                 <Checkbox
                                     id="matchMethod"
                                     checked={formData.method.enabled}
-                                    onCheckedChange={(checked) => 
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            formData.method.pattern = record?.paymentMethod;
+                                        }
                                         updateMatchCondition('method', { enabled: !!checked })
-                                    }
+                                    }}
                                 />
                                 <MatchFieldLabel field="method">
                                     <Label htmlFor="matchMethod">匹配支付方式</Label>
@@ -594,7 +580,7 @@ export function CreateRuleDialog({
                             {formData.method.enabled && (
                                 <Input
                                     value={formData.method.pattern}
-                                    onChange={(e) => 
+                                    onChange={(e) =>
                                         updateMatchCondition('method', { pattern: e.target.value })
                                     }
                                     placeholder="输入支付方式匹配模式"

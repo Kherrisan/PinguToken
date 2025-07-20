@@ -15,18 +15,25 @@ import fs from 'fs'
 
 export async function parseEmailHeader(imap: Imap, uid: string): Promise<EmailInfo> {
   return new Promise((resolve, reject) => {
-    const fetch = imap.fetch(uid, { bodies: 'HEADER' })
+    const fetch = imap.fetch(uid, { struct: true, envelope: true, bodies: [''] })
 
     fetch.on('message', (msg) => {
+
+      let buffer = ""
+
       msg.on('body', (stream) => {
-        simpleParser(stream as unknown as Stream, (err, parsed) => {
+        stream.on('data', (chunk) => {
+          buffer += chunk.toString()
+        })
+      })
+
+      msg.on('end', () => {
+        simpleParser(buffer, (err, parsed) => {
           if (err) {
             console.error('Error parsing email header:', err)
             reject(err)
             return
           }
-
-          // console.log('Parsed email:', parsed)
 
           const emailInfo: EmailInfo = {
             uid,
@@ -39,15 +46,15 @@ export async function parseEmailHeader(imap: Imap, uid: string): Promise<EmailIn
               size: att.size || 0,
               contentType: att.contentType || '',
               cid: att.cid,
-              disposition: att.disposition,
+              disposition: att.contentDisposition,
+              content: att.content as Buffer
             }))
           }
-
-          // console.log('Parsed email header:', emailInfo)
 
           resolve(emailInfo)
         })
       })
+
     })
 
     fetch.once('error', reject)
@@ -146,8 +153,15 @@ export async function extractZipFile(zipFilePath: string, password?: string): Pr
       if (data) {
         const dataBuffer = await data.bytes()
         console.log(`dataBuffer: ${dataBuffer.length} bytes`)
-        const csv = xlsxBufferToCsv(Buffer.from(dataBuffer))
-        console.log(`csv: ${csv.length} bytes`)
+
+        let csv = ""
+        if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+          csv = xlsxBufferToCsv(Buffer.from(dataBuffer))
+          console.log(`csv: ${csv.length} bytes`)
+        } else {
+          csv = new TextDecoder('gbk').decode(dataBuffer)
+          console.log(`csv: ${csv.length} bytes`)
+        }
 
         const csvFilePath = zipFilePath.replace('.zip', '.csv')
         fs.writeFileSync(csvFilePath, csv, 'utf8')
@@ -172,12 +186,12 @@ export function identifyBillEmailProvider(email: EmailInfo): EmailProvider | nul
     const providerConfig = config as any
 
     // 检查发件人
-    if (providerConfig.fromPattern.test(email.from)) {
+    if (providerConfig.fromPattern && providerConfig.fromPattern.test(email.from)) {
       return provider as EmailProvider
     }
 
     // 检查主题
-    if (providerConfig.subjectPattern.test(email.subject)) {
+    if (providerConfig.subjectPattern && providerConfig.subjectPattern.test(email.subject)) {
       return provider as EmailProvider
     }
   }
@@ -192,7 +206,7 @@ export function isBillEmail(email: EmailInfo): boolean {
 
 export async function searchBillEmails(imap: Imap, options: EmailSearchOptions = {}): Promise<BillEmail[]> {
   return new Promise((resolve, reject) => {
-    const searchCriteria: any[] = [['FROM', 'wechatpay@tencent.com']]
+    const searchCriteria: any[] = []
 
     if (options.since) {
       searchCriteria.push(['SINCE', options.since])
@@ -221,11 +235,12 @@ export async function searchBillEmails(imap: Imap, options: EmailSearchOptions =
         const billEmails: BillEmail[] = []
 
         for (const uid of results) {
-          console.log('uid ', uid)
           const emailInfo = await parseEmailHeader(imap, uid.toString())
+          console.log(`emailInfo: ${emailInfo.subject}`)
 
           if (isBillEmail(emailInfo)) {
             const provider = identifyBillEmailProvider(emailInfo)
+            console.log(`provider: ${provider}`)
             if (provider) {
               billEmails.push({
                 uid: emailInfo.uid,
@@ -250,7 +265,7 @@ export async function searchBillEmails(imap: Imap, options: EmailSearchOptions =
 export async function downloadZipFile(imap: any, uid: string, provider: EmailProvider): Promise<string> {
   const emailInfo = await parseEmailHeader(imap, uid)
   const emailContent = await getEmailContent(imap, uid)
-  // console.log(`emailInfo: ${emailInfo}, emailContent: ${emailContent}`)
+  console.log(`emailInfo: ${emailInfo}, emailContent: ${emailContent}`)
   let file = await EMAIL_PROVIDERS[provider].downloadAttachment(emailInfo, emailContent)
 
   if (!file.endsWith('.zip')) {

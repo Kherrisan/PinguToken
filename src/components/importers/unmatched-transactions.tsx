@@ -2,34 +2,28 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import { ImportRecord } from "@/lib/types/transaction"
-import { CreateRuleDialog } from "./create-rule-dialog"
-import { Loader2, Pencil, Wand2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
-import { ComboboxAccount } from "./combobox-account"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2, RefreshCw, Wand2 } from "lucide-react"
+import { CreateRuleDialog } from "./create-rule-dialog"
+import { ComboboxAccount } from "./combobox-account"
 import { MatchResult } from "@/lib/importers/matcher"
+import { ImportRecord } from "@/lib/types/transaction"
 import { cn } from "@/lib/utils"
+import { getProviderColor } from "@/lib/utils/provider"
 
 interface UnmatchedTransactionsProps {
     transactions: MatchResult[];
     onRuleCreated: (ruleId: string) => void;
+    source?: string; // 添加source参数来控制API调用
+    isFromDatabase?: boolean; // 标记是否来自数据库
+    onRefresh?: () => void; // 添加刷新函数
+    onRemove?: (transactionNo: string) => void;
+    onBatchMatch?: (matchableTransactions: MatchResult[]) => void;
+    onManualMatch?: (record: ImportRecord, targetAccount: string, methodAccount: string, rawTxId: string) => void;
 }
 
 interface ManualMatchDialogProps {
@@ -39,10 +33,15 @@ interface ManualMatchDialogProps {
     onConfirm: (transaction: ImportRecord, targetAccount: string, methodAccount: string) => void;
     suggestedTargetAccount?: string;
     suggestedMethodAccount?: string;
+    rawTxId?: string;
 }
 
 interface TransactionWithStatus extends MatchResult {
     canBeMatched?: boolean;  // 标记可以被新规则匹配的交易
+}
+
+function isMatchable(tx: MatchResult) {
+    return !!(tx.methodAccount && tx.targetAccount);
 }
 
 function ManualMatchDialog({
@@ -51,12 +50,13 @@ function ManualMatchDialog({
     onOpenChange,
     onConfirm,
     suggestedTargetAccount,
-    suggestedMethodAccount
+    suggestedMethodAccount,
+    rawTxId
 }: ManualMatchDialogProps) {
     const [targetAccount, setTargetAccount] = useState(suggestedTargetAccount || '')
     const [methodAccount, setMethodAccount] = useState(suggestedMethodAccount || '')
 
-    if (!transaction) return null;
+    if (!transaction || !rawTxId) return null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,7 +82,6 @@ function ManualMatchDialog({
                                     <div><span className="font-medium">金额：</span>{transaction.amount}</div>
                                     <div><span className="font-medium">分类：</span>{transaction.category}</div>
                                     <div><span className="font-medium">支付方式：</span>{transaction.paymentMethod}</div>
-                                    <div><span className="font-medium">交易状态：</span>{transaction.status}</div>
                                     <div><span className="font-medium">交易订单号：</span>{transaction.transactionNo}</div>
                                     <div><span className="font-medium">商家订单号：</span>{transaction.merchantOrderNo}</div>
                                     <div><span className="font-medium">备注：</span>{transaction.remarks}</div>
@@ -134,10 +133,17 @@ function ManualMatchDialog({
     )
 }
 
-export function UnmatchedTransactions({ transactions: initialTransactions, onRuleCreated }: UnmatchedTransactionsProps) {
+export function UnmatchedTransactions({
+    transactions,
+    onRuleCreated,
+    isFromDatabase = false,
+    onRefresh,
+    onRemove,
+    onBatchMatch,
+    onManualMatch
+}: UnmatchedTransactionsProps) {
     const [selectedTransaction, setSelectedTransaction] = useState<ImportRecord | null>(null);
     const [manualMatchTransaction, setManualMatchTransaction] = useState<MatchResult | null>(null);
-    const [transactions, setTransactions] = useState<TransactionWithStatus[]>(initialTransactions);
     const [isBatchMatching, setIsBatchMatching] = useState(false);
     const { toast } = useToast();
 
@@ -145,44 +151,15 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
     const handleBatchTryMatch = async () => {
         setIsBatchMatching(true);
         try {
-            // 找出所有可以匹配的交易
-            const matchableTransactions = transactions.filter(tx => tx.canBeMatched);
-            
+            const matchableTransactions = transactions.filter(isMatchable);
             if (matchableTransactions.length === 0) {
-                toast({
-                    title: "批量匹配",
-                    description: "没有找到可以匹配的交易",
-                });
+                toast({ title: "批量匹配", description: "没有找到可以匹配的交易" });
                 return;
             }
-
-            // 批量保存匹配成功的交易
-            await fetch('/api/import/match', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    source: 'alipay',
-                    transactions: matchableTransactions.map(tx => tx.record)
-                }),
-            });
-
-            // 从列表中移除已匹配的交易
-            setTransactions(prev => 
-                prev.filter(tx => !tx.canBeMatched)
-            );
-
-            toast({
-                title: "批量匹配完成",
-                description: `成功匹配并导入 ${matchableTransactions.length} 笔交易`,
-            });
+            if (onBatchMatch) await onBatchMatch(matchableTransactions);
+            toast({ title: "批量匹配完成", description: `成功匹配并导入 ${matchableTransactions.length} 笔交易` });
         } catch (error) {
-            toast({
-                title: "批量匹配失败",
-                description: "请稍后重试",
-                variant: "destructive",
-            });
+            toast({ title: "批量匹配失败", description: "请稍后重试", variant: "destructive" });
         } finally {
             setIsBatchMatching(false);
         }
@@ -190,142 +167,55 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
 
     // 处理规则创建后的重新匹配
     const handleRuleCreated = async (ruleId: string, currentTransactionMatched: boolean) => {
-        const currentTransaction = selectedTransaction;
         setSelectedTransaction(null);
-
-        if (!currentTransaction) return;
-
-        try {
-            // 重新匹配剩余的未匹配交易
-            const remainingTransactions = transactions.filter(tx => 
-                tx.record.transactionNo !== currentTransaction.transactionNo
-            );
-
-            // 一次性发送所有交易进行匹配检查
-            const tryMatchResponse = await fetch('/api/import/try-match', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    source: 'alipay',
-                    transactions: remainingTransactions.map(tx => tx.record)
-                }),
-            });
-
-            const matchResults = await tryMatchResponse.json();
-
-            // 更新交易列表，标记可匹配的交易
-            setTransactions(prev => {
-                return prev
-                    .filter(tx => tx.record.transactionNo !== currentTransaction.transactionNo)
-                    .map(tx => {
-                        const matchResult = matchResults.find(
-                            r => r.transactionNo === tx.record.transactionNo
-                        );
-                        if (matchResult?.matched) {
-                            return {
-                                ...tx,
-                                canBeMatched: true,
-                                targetAccount: matchResult.targetAccount,
-                                methodAccount: matchResult.methodAccount
-                            };
-                        }
-                        return tx;
-                    });
-            });
-
-            const matchableCount = matchResults.filter(r => r.matched).length;
-            if (matchableCount > 0) {
-                toast({
-                    title: "规则创建成功",
-                    description: `发现 ${matchableCount} 笔可匹配的交易，点击"匹配全部未导入交易"按钮进行导入`,
-                });
-            }
-
-            onRuleCreated(ruleId);
-        } catch (error) {
-            toast({
-                title: "匹配检查失败",
-                description: "检查可匹配交易时出错",
-                variant: "destructive",
-            });
-        }
+        onRuleCreated(ruleId);
     };
 
-    const handleManualMatch = async (transaction: ImportRecord, targetAccount: string, methodAccount: string) => {
+    // 手动匹配
+    const handleManualMatch = async (record: ImportRecord, targetAccount: string, methodAccount: string) => {
         try {
-            const response = await fetch('/api/import/manual-match', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    source: 'alipay',
-                    transactions: [{
-                        transaction,
-                        targetAccount,
-                        methodAccount
-                    }]
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to match transaction');
+            if (onManualMatch && manualMatchTransaction) {
+                await onManualMatch(record, targetAccount, methodAccount, manualMatchTransaction.record.rawTxId);
             }
-
-            // 从列表中移除已匹配的交易
-            setTransactions(prev => 
-                prev.filter(tx => tx.record.transactionNo !== transaction.transactionNo)
-            );
-
-            toast({
-                title: "匹配成功",
-                description: "交易已成功匹配并保存",
-            });
-
-            // 关闭手动匹配对话框
+            toast({ title: "匹配成功", description: "交易已成功匹配并保存" });
             setManualMatchTransaction(null);
         } catch (error) {
-            toast({
-                title: "匹配失败",
-                description: "无法保存匹配结果，请重试",
-                variant: "destructive",
-            });
-            throw error; // 向上传播错误
+            toast({ title: "匹配失败", description: "无法保存匹配结果，请重试", variant: "destructive" });
+            throw error;
         }
     };
 
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-lg font-semibold">未匹配交易</h3>
-                    <p className="text-sm text-muted-foreground">
-                        共 {transactions.length} 条交易需要设置规则
-                        {transactions.filter(tx => tx.canBeMatched).length > 0 && (
-                            <span className="ml-2 text-green-600">
-                                （其中 {transactions.filter(tx => tx.canBeMatched).length} 条可以匹配）
-                            </span>
+                <div className="flex gap-2">
+                    <Button
+                        onClick={handleBatchTryMatch}
+                        disabled={isBatchMatching || !transactions.some(isMatchable)}
+                    >
+                        {isBatchMatching ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                匹配中
+                            </>
+                        ) : (
+                            <>
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                匹配全部未导入交易
+                            </>
                         )}
-                    </p>
-                </div>
-                <Button
-                    onClick={handleBatchTryMatch}
-                    disabled={isBatchMatching || !transactions.some(tx => tx.canBeMatched)}
-                >
-                    {isBatchMatching ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            匹配中
-                        </>
-                    ) : (
-                        <>
-                            <Wand2 className="mr-2 h-4 w-4" />
-                            匹配全部未导入交易
-                        </>
+                    </Button>
+                    {onRefresh && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onRefresh}
+                        >
+                            <RefreshCw className={`w-4 h-4 mr-2`} />
+                            刷新
+                        </Button>
                     )}
-                </Button>
+                </div>
             </div>
 
             <div className="rounded-md border">
@@ -338,15 +228,16 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
                             <TableHead>交易对手</TableHead>
                             <TableHead>描述</TableHead>
                             <TableHead>金额</TableHead>
+                            <TableHead>来源</TableHead>
                             <TableHead className="text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {transactions.map((tx) => (
-                            <TableRow 
+                            <TableRow
                                 key={tx.record.transactionNo}
                                 className={cn(
-                                    tx.canBeMatched && "bg-green-50"
+                                    isMatchable(tx) && "bg-green-50"
                                 )}
                             >
                                 <TableCell>{tx.record.transactionTime}</TableCell>
@@ -356,8 +247,15 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
                                 <TableCell>{tx.record.description}</TableCell>
                                 <TableCell>{tx.record.amount}</TableCell>
                                 <TableCell>
+                                    <Badge className={getProviderColor(tx.record.provider || '')}>
+                                        {tx.record.provider === 'wechatpay' ? '微信支付' :
+                                            tx.record.provider === 'alipay' ? '支付宝' :
+                                                tx.record.provider || '未知'}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>
                                     <div className="flex items-center justify-end gap-2">
-                                        {!tx.canBeMatched && (
+                                        {!isMatchable(tx) && (
                                             <>
                                                 <Button
                                                     variant="outline"
@@ -373,6 +271,16 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
                                                 >
                                                     手动匹配
                                                 </Button>
+                                                {onRemove && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => onRemove(tx.record.transactionNo)}
+                                                        title="移除"
+                                                    >
+                                                        ×
+                                                    </Button>
+                                                )}
                                             </>
                                         )}
                                     </div>
@@ -384,7 +292,7 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
             </div>
 
             <CreateRuleDialog
-                transaction={selectedTransaction}
+                record={selectedTransaction}
                 open={!!selectedTransaction}
                 onOpenChange={(open) => !open && setSelectedTransaction(null)}
                 onRuleCreated={handleRuleCreated}
@@ -398,6 +306,7 @@ export function UnmatchedTransactions({ transactions: initialTransactions, onRul
                     onConfirm={handleManualMatch}
                     suggestedTargetAccount={manualMatchTransaction.targetAccount}
                     suggestedMethodAccount={manualMatchTransaction.methodAccount}
+                    rawTxId={manualMatchTransaction.record.rawTxId}
                 />
             )}
         </div>

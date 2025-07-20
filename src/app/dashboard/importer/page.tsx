@@ -19,9 +19,12 @@ export default function ImporterPage() {
                 <TransactionImportManager>
                     {({ addImportResult }) => (
                         <>
+                            {/* 导入功能区域 - 横向并列布局 */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* 邮件账单检查 */}
                             <EmailBillChecker onImportResult={addImportResult} />
 
+                                {/* 文件导入 */}
                             <Card>
                                 <CardHeader>
                                     <CardTitle>选择导入来源</CardTitle>
@@ -35,6 +38,7 @@ export default function ImporterPage() {
                                     </Suspense>
                                 </CardContent>
                             </Card>
+                            </div>
                         </>
                     )}
                 </TransactionImportManager>

@@ -13,7 +13,6 @@ import {
   Calendar, 
   FileText, 
   AlertCircle,
-  CheckCircle2,
   Loader2
 } from 'lucide-react'
 import { useEmailBills } from '@/hooks/use-email-bills'
@@ -21,6 +20,7 @@ import { useToast } from '@/hooks/use-toast'
 import { BillEmail } from '@/types/email'
 import { formatDate } from '@/lib/utils'
 import { ImportResult } from './transaction-import-manager'
+import { getProviderColor, getProviderName } from '@/lib/utils/provider'
 
 interface EmailBillCheckerProps {
   onImportResult: (result: Omit<ImportResult, 'id' | 'processedAt'>) => void
@@ -83,29 +83,7 @@ export function EmailBillChecker({ onImportResult }: EmailBillCheckerProps) {
     }
   }
 
-  // 获取提供商的中文名称
-  const getProviderName = (provider: string) => {
-    switch (provider) {
-      case 'wechatpay':
-        return '微信支付'
-      case 'alipay':
-        return '支付宝'
-      default:
-        return provider
-    }
-  }
 
-  // 获取提供商的颜色
-  const getProviderColor = (provider: string) => {
-    switch (provider) {
-      case 'wechatpay':
-        return 'bg-green-100 text-green-800'
-      case 'alipay':
-        return 'bg-blue-100 text-blue-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
 
   return (
     <Card>
@@ -137,7 +115,6 @@ export function EmailBillChecker({ onImportResult }: EmailBillCheckerProps) {
           <Label htmlFor="zip-password">压缩包密码（如有）</Label>
           <Input
             id="zip-password"
-            type="password"
             placeholder="请输入压缩包密码"
             value={zipPassword}
             onChange={(e) => setZipPassword(e.target.value)}

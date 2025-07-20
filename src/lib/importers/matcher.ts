@@ -9,7 +9,6 @@ interface MatchingData {
     description: string;
     amount: number;
     time: string;
-    status: string;
     method: string;
 }
 
@@ -23,11 +22,11 @@ export interface MatchResult {
 // 匹配交易记录
 export async function matchTransactions(
     records: ImportRecord[], 
-    source: string
-): Promise<{ matched: MatchResult[]; unmatched: MatchResult[] }> {
-    const matched: MatchResult[] = [];
-    const unmatched: MatchResult[] = [];
-
+): Promise<MatchResult[]> {
+    if (records.length === 0) {
+        return [];
+    }
+    const source = records[0].provider;
     // 获取所有启用的规则，按优先级排序
     const rules = await prisma.importRule.findMany({
         where: {
@@ -39,17 +38,11 @@ export async function matchTransactions(
         }
     });
 
-    for (const record of records) {
-        const matchResult = await matchSingleTransaction(record, rules);
-        
-        if (matchResult.targetAccount && matchResult.methodAccount) {
-            matched.push(matchResult);
-        } else {
-            unmatched.push(matchResult);
-        }
-    }
+    const matchResults = await Promise.all(records.map(async (record) => {
+        return await matchSingleTransaction(record, rules);
+    }));
 
-    return { matched, unmatched };
+    return matchResults;
 }
 
 // 匹配单条交易记录
@@ -64,13 +57,12 @@ async function matchSingleTransaction(
         description: record.description,
         amount: parseFloat(record.amount),
         time: record.transactionTime.split(' ')[1],
-        status: record.status,
         method: record.paymentMethod
     };
 
     const result: MatchResult = {
         record,
-        matchedRules: []
+        matchedRules: [],
     };
 
     // 遍历所有规则
@@ -128,11 +120,6 @@ function matchesRule(rule: ImportRule, data: MatchingData): boolean {
 
     // 检查金额范围
     if (!isAmountInRange(data.amount, rule.amountMin, rule.amountMax)) {
-        return false;
-    }
-
-    // 检查状态
-    if (rule.statusPattern && !matchesPattern(data.status, rule.statusPattern)) {
         return false;
     }
 

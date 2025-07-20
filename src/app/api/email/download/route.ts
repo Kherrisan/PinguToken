@@ -6,7 +6,7 @@ import {
 } from '@/lib/email-utils'
 import { EmailDownloadResponse, EmailProvider } from '@/types/email'
 import { getEmailConfigFromEnv, getMissingEnvVars } from '@/lib/email-env'
-import { processCsvBuffer, Provider } from '@/lib/importers/processor'
+import { processCsvBuffer, processCsvFile, Provider } from '@/lib/importers/processor'
 import fs from 'fs'
 
 export async function POST(request: Request) {
@@ -55,12 +55,13 @@ export async function POST(request: Request) {
       const zipFile = await downloadZipFile(imap, uid, provider)
 
       try {
+        console.log(`extracting zip file ${zipFile} with password ${zipPassword}`)
         const csvFile = await extractZipFile(zipFile, zipPassword)
         if (!csvFile) {
           throw new Error('提取CSV文件失败')
         }
 
-        console.log('csvFile', csvFile);
+        console.log(`extracted csv file: ${csvFile}`);
 
         // 读取CSV文件并使用通用处理函数
         const fileBuffer = await fs.promises.readFile(csvFile)
@@ -71,15 +72,14 @@ export async function POST(request: Request) {
         }
 
         // 直接使用统一的provider名称
-        const result = await processCsvBuffer({
+        const result = await processCsvFile({
           provider: provider as Provider,
-          buffer: fileBuffer,
-          filename: csvFile,
-          tempPathPrefix: 'tmp/email'
+          csvFilePath: csvFile
         })
 
         return NextResponse.json(result)
       } catch (error) {
+        console.error('解压缩文件失败:', error)
         return NextResponse.json<EmailDownloadResponse>(
           {
             success: false,
