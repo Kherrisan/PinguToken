@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { ErrorResponse, ImportResponse } from '../alipay/route';
 import { processCsvFile } from '@/lib/importers/processor';
+import fs from 'fs';
 
 export async function POST(request: Request) {
     try {
@@ -14,10 +15,15 @@ export async function POST(request: Request) {
             );
         }
 
+        const tempPathPrefix = '/   tmp';
+        const tempFilePath = `${tempPathPrefix}/${file.name}`;
+        const buffer = await file.arrayBuffer();
+        await fs.promises.writeFile(tempFilePath, Buffer.from(buffer));
+
         // 使用通用处理函数
         const result = await processCsvFile({
             provider: 'wechatpay',
-            file
+            csvFilePath: tempFilePath
         });
 
         return NextResponse.json(result as ImportResponse);

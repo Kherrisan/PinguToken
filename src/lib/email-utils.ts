@@ -67,7 +67,7 @@ export async function getEmailAttachments(imap: Imap, uid: string): Promise<{ fi
 
     fetch.on('message', (msg) => {
       msg.on('body', (stream) => {
-        parseMailParser(stream, (err, parsed) => {
+        simpleParser(stream as unknown as Stream, (err, parsed) => {
           if (err) {
             reject(err)
             return

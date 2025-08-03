@@ -59,9 +59,9 @@ export async function GET(request: Request) {
         const wechatpayRecords: ImportRecord[] = records.filter(r => r.provider === 'wechatpay');
         console.log('wechatpayRecords', wechatpayRecords);
 
-        const alipayMatchResults = await matchTransactions(alipayRecords, 'alipay')
+        const alipayMatchResults = await matchTransactions(alipayRecords)
         console.log('alipayMatchResults', alipayMatchResults);
-        const wechatpayMatchResult = await matchTransactions(wechatpayRecords, 'wechatpay')
+        const wechatpayMatchResult = await matchTransactions(wechatpayRecords)
         console.log('wechatpayMatchResult', wechatpayMatchResult);
         const matchResults = [...alipayMatchResults, ...wechatpayMatchResult]
 
