@@ -11,42 +11,13 @@ import { useState, useEffect } from "react"
 import { toast } from "@/hooks/use-toast"
 import { DatePicker } from "@/components/ui/date-picker"
 import { ComboboxAccount } from "@/components/importers/combobox-account"
-import { Pagination } from "@/components/ui/pagination"
-
-async function getTransactions(params: string) {
-    try {
-        const response = await fetch('/api/transactions?' + params, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch transactions');
-        }
-
-        const transactions = await response.json();
-
-        return transactions.map((tx: any) => ({
-            id: tx.id,
-            date: formatDate(tx.date),
-            payee: tx.payee,
-            narration: tx.narration,
-            amount: [...tx.postings]
-                .filter((p: any) => Number(p.amount) > 0)
-                .reduce((sum: number, p: any) => sum + Number(p.amount), 0)
-                .toString(),
-            accounts: [...tx.postings]
-                .sort((a: any, b: any) => Number(a.amount) - Number(b.amount))
-                .map((p: any) => p.account),
-            tags: tx.tags?.map((t: any) => t.name).join(", ") || "",
-        }));
-    } catch (error) {
-        console.error('Error fetching transactions:', error);
-        return [];
-    }
-}
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 interface QueryParams {
     startDate?: string;
@@ -85,7 +56,8 @@ export default function TransactionsPage() {
                 if (value !== undefined) searchParams.append(key, value.toString());
             });
 
-            const response = await fetch('/api/transactions?' + searchParams.toString());
+            const url = '/api/transactions?' + searchParams.toString();
+            const response = await fetch(url);
             const { data, pagination: paginationData } = await response.json();
             
             setTransactions(data.map((tx: any) => ({
@@ -153,9 +125,8 @@ export default function TransactionsPage() {
                 throw new Error(errorData.error || 'Failed to create transaction');
             }
 
-            // 刷新交易列表
-            const updatedTransactions = await getTransactions(new URLSearchParams(queryParams as any).toString());
-            setTransactions(updatedTransactions);
+            // 刷新交易列表，使用fetchTransactions保持分页状态一致
+            await fetchTransactions(queryParams);
 
         } catch (error) {
             console.error('Error creating transaction:', error);
@@ -314,12 +285,62 @@ export default function TransactionsPage() {
                         data={transactions}
                         enableRowClick={true}
                     />
-                    <Pagination
-                        pageSize={pagination.pageSize}
-                        pageCount={pagination.totalPages}
-                        page={pagination.page}
-                        onPageChange={handlePageChange}
-                    />
+                    
+                    {/* 分页控制 */}
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <Label>每页显示</Label>
+                            <Select
+                                value={queryParams.pageSize?.toString() || '10'}
+                                onValueChange={(value) => {
+                                    setQueryParams(prev => {
+                                        const newParams = {
+                                            ...prev,
+                                            page: 1,
+                                            pageSize: Number(value)
+                                        };
+                                        return newParams;
+                                    });
+                                }}
+                            >
+                                <SelectTrigger className="w-[80px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="2">2</SelectItem>
+                                    <SelectItem value="5">5</SelectItem>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <span className="text-sm text-muted-foreground">
+                                条记录，共 {pagination.total} 条
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">
+                                {pagination.totalPages === 0 ? "第 0 / 0 页" : `第 ${pagination.page} / ${pagination.totalPages} 页`}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePageChange(Math.max(1, pagination.page - 1))}
+                                disabled={pagination.page <= 1 || pagination.totalPages === 0}
+                            >
+                                上一页
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePageChange(Math.min(pagination.totalPages, pagination.page + 1))}
+                                disabled={pagination.page >= pagination.totalPages || pagination.totalPages === 0}
+                            >
+                                下一页
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

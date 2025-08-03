@@ -28,10 +28,16 @@ export const columns: ColumnDef<Transaction>[] = [
     {
         accessorKey: "payee",
         header: "交易对手",
+        meta: {
+            className: "hidden sm:table-cell"
+        }
     },
     {
         accessorKey: "narration",
         header: "描述",
+        meta: {
+            className: "hidden md:table-cell"
+        }
     },
     {
         accessorKey: "amount",

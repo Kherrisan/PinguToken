@@ -54,6 +54,7 @@ export async function parseWeChatCSV(filePath: string): Promise<ImportRecord[]> 
             continue; // 跳过空行或无效行
         }
         record.amount = record.amount.replace(/[¥,]/g, '')
+        record.provider = 'wechatpay' // 设置来源为微信支付
         records.push(record);
     }
 

@@ -3,14 +3,15 @@ import { readFileSync } from 'fs';
 import { prisma } from '@/lib/prisma';
 import { ImportRecord } from '@/lib/types/transaction';
 import { RawTransaction, Transaction } from '@prisma/client';
+import { Provider } from './processor';
 
 // 处理单条记录
-export async function processRawRecord(record: ImportRecord) {
-    // 检查是否已导入
+export async function processRawRecord(record: ImportRecord, provider: Provider) {
+    // 检查是否已导入   
     const existingRawTx = await prisma.rawTransaction.findUnique({
         where: {
             source_identifier: {
-                source: 'alipay',
+                source: provider,
                 identifier: record.transactionNo.trim()
             }
         },
@@ -31,10 +32,10 @@ export async function processRawRecord(record: ImportRecord) {
     // 获取或创建原始记录
     const rawTransaction = existingRawTx || await prisma.rawTransaction.create({
         data: {
-            source: 'alipay',
+            source: provider,
             identifier: record.transactionNo.trim(),
             rawData: record as any,
-            createdAt: date
+            createdAt: date,
         }
     });
 
@@ -99,6 +100,7 @@ export async function parseAlipayCSV(filePath: string): Promise<ImportRecord[]> 
         if (!record.transactionTime || !record.transactionNo) {
             continue; // 跳过空行或无效行
         }
+        record.provider = 'alipay' // 设置来源为支付宝
         records.push(record);
     }
 

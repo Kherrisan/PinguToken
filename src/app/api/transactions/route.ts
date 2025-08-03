@@ -41,6 +41,7 @@ async function getAccountAndDescendantsIds(accountId: string): Promise<string[]>
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
+        
         const params: QueryParams = {
             startDate: searchParams.get('startDate') || undefined,
             endDate: searchParams.get('endDate') || undefined,
@@ -165,14 +166,16 @@ export async function GET(request: Request) {
             take: pageSize
         });
 
+        const paginationResult = {
+            total,
+            page,
+            pageSize,
+            totalPages: Math.ceil(total / pageSize)
+        };
+
         return NextResponse.json({
             data: transactions,
-            pagination: {
-                total,
-                page,
-                pageSize,
-                totalPages: Math.ceil(total / pageSize)
-            }
+            pagination: paginationResult
         });
     } catch (error) {
         console.error('Failed to fetch transactions:', error);
