@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { MatchResult } from '@/lib/importers/matcher';
 import { processCsvFile } from '@/lib/importers/processor';
+import fs from 'fs';
 
 export interface ImportResponse {
     matched: number;
@@ -23,10 +24,15 @@ export async function POST(request: Request): Promise<NextResponse<ImportRespons
             );
         }
 
+        const tempPathPrefix = 'tmp';
+        const tempFilePath = `${tempPathPrefix}/${file.name}`;
+        const buffer = await file.arrayBuffer();
+        await fs.promises.writeFile(tempFilePath, Buffer.from(buffer));
+
         // 使用通用处理函数
         const result = await processCsvFile({
             provider: 'alipay',
-            file
+            csvFilePath: tempFilePath
         });
 
         return NextResponse.json(result as ImportResponse);

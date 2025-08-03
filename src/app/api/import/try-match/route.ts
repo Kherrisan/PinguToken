@@ -7,7 +7,7 @@ export async function POST(request: Request) {
         const { source, records }: { source: string, records: ImportRecord[] } = await request.json()
 
         // 批量尝试匹配规则
-        const matchResults = await matchTransactions(records, source)
+        const matchResults = await matchTransactions(records)
         
         // // 返回每个交易的匹配结果
         // const results = transactions.map((record: ImportRecord) => {

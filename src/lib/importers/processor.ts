@@ -30,7 +30,7 @@ export async function processCsvFile({
     console.log(`records: ${records.length}`)
 
     // 匹配交易记录
-    const matchResults = await matchTransactions(records, provider);
+    const matchResults = await matchTransactions(records);
     const matched = matchResults.filter(r => r.targetAccount && r.methodAccount);
     const unmatched = matchResults.filter(r => !r.targetAccount || !r.methodAccount);
     console.log(`matched: ${matched.length}`)
